@@ -1,0 +1,26 @@
+# Rust build artifacts
+/target/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Asset source files (Blender, Photoshop, etc.)
+assets/**/*.blend1
+assets/**/*.blend2
+assets/**/*.bak
+
+# Environment / Secrets
+.env
+.env.local
+
+# Generated docs (cargo doc output)
+/target/doc/

@@ -1,0 +1,35 @@
+{
+  "schema_version": 2,
+  "active_work_id": "phase-0-foundation-a117852d",
+  "works": {
+    "phase-0-foundation-a117852d": {
+      "work_id": "phase-0-foundation-a117852d",
+      "active_plan": "C:\\Users\\ssdsk\\projects\\SOCOM\\.omo\\plans\\phase-0-foundation.md",
+      "plan_name": "phase-0-foundation",
+      "status": "active",
+      "started_at": "2026-06-18T08:46:01.454Z",
+      "updated_at": "2026-06-18T08:46:01.454Z",
+      "session_ids": [
+        "opencode:ses_1262c856fffeC06drMWtd4TENr"
+      ],
+      "session_origins": {
+        "opencode:ses_1262c856fffeC06drMWtd4TENr": "direct"
+      },
+      "agent": "atlas",
+      "task_sessions": {}
+    }
+  },
+  "active_plan": "C:\\Users\\ssdsk\\projects\\SOCOM\\.omo\\plans\\phase-0-foundation.md",
+  "started_at": "2026-06-18T08:46:01.454Z",
+  "status": "active",
+  "updated_at": "2026-06-18T08:46:01.454Z",
+  "session_ids": [
+    "opencode:ses_1262c856fffeC06drMWtd4TENr"
+  ],
+  "session_origins": {
+    "opencode:ses_1262c856fffeC06drMWtd4TENr": "direct"
+  },
+  "plan_name": "phase-0-foundation",
+  "task_sessions": {},
+  "agent": "atlas"
+}

@@ -1,0 +1,13 @@
+[package]
+name = "socom-core"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = []
+bevy = ["dep:bevy_ecs"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+glam = { version = "0.29", features = ["serde"] }
+bevy_ecs = { version = "0.18.1", optional = true }

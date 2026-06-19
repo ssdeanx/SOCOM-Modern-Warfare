@@ -1,0 +1,62 @@
+[package]
+name = "socom-game"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# ═══════════════════════════════════════════
+# ENGINE
+# ═══════════════════════════════════════════
+bevy = { version = "0.18.1", features = ["3d", "audio", "bevy_dev_tools"] }
+
+# ═══════════════════════════════════════════
+# INTERNAL CRATES
+# ═══════════════════════════════════════════
+socom-core = { path = "../core", features = ["bevy"] }
+socom-input = { path = "../input" }
+socom-rendering = { path = "../rendering" }
+socom-audio = { path = "../audio" }
+
+# ═══════════════════════════════════════════
+# PHYSICS — XPBD character controller
+# ═══════════════════════════════════════════
+avian3d = "0.6.1"
+
+# ═══════════════════════════════════════════
+# INPUT — Action-based keyboard + gamepad
+# ═══════════════════════════════════════════
+leafwing-input-manager = "0.20"
+
+# ═══════════════════════════════════════════
+# SERIALIZATION — Save data, configs, levels
+# ═══════════════════════════════════════════
+ron = "0.12"
+serde = { version = "1", features = ["derive"] }
+
+# ═══════════════════════════════════════════
+# VFX — GPU particle system
+# ═══════════════════════════════════════════
+bevy_hanabi = "0.18.0"
+
+# ═══════════════════════════════════════════
+# AUDIO — Professional audio middleware
+# ═══════════════════════════════════════════
+kira = "0.12"
+
+# ═══════════════════════════════════════════
+# NETWORKING — Multiplayer (Phase 3 ready)
+# ═══════════════════════════════════════════
+bevy_replicon = "0.41.0-rc.1"
+lightyear = "0.26.4"
+lightyear_avian3d = "0.26.4"
+
+# ═══════════════════════════════════════════
+# DEBUG — Runtime entity inspector
+# ═══════════════════════════════════════════
+bevy-inspector-egui = "0.36.0"
+
+# ═══════════════════════════════════════════
+# ASSET PIPELINE — Loading screens, file formats
+# ═══════════════════════════════════════════
+iyes_progress = "0.17.0-rc.1"
+bevy_common_assets = { version = "0.17.0-rc.1", features = ["ron"] }

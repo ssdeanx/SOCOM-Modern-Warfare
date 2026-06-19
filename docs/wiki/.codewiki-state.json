@@ -1,0 +1,8 @@
+{
+  "repo_name": "SOCOM",
+  "source_path": "C:\\Users\\ssdsk\\projects\\SOCOM",
+  "source_sha": "uncommitted",
+  "generated_at": "2026-06-18T13:22:00Z",
+  "generator": "hermes-agent code-wiki skill v0.1.0",
+  "modules_documented": ["core", "input", "rendering", "audio", "game"]
+}

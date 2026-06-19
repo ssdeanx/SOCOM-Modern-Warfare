@@ -1,0 +1,10 @@
+[package]
+name = "socom-input"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = { version = "0.18.1" }
+leafwing-input-manager = "0.20"
+
+socom-core = { path = "../core", features = ["bevy"] }

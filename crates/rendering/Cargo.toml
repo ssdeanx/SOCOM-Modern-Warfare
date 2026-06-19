@@ -1,0 +1,11 @@
+[package]
+name = "socom-rendering"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = { version = "0.18.1" }
+
+socom-core = { path = "../core", features = ["bevy"] }
+socom-input = { path = "../input" }
+avian3d = "0.6.1"

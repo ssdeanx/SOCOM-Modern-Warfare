@@ -24,3 +24,4 @@ assets/**/*.bak
 
 # Generated docs (cargo doc output)
 /target/doc/
+nul

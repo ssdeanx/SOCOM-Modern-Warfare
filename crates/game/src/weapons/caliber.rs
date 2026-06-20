@@ -1,6 +1,5 @@
 /// Caliber definitions with damage, penetration, and ballistic characteristics.
 /// Each caliber modifies a weapon's base stats multiplicatively.
-
 use serde::{Deserialize, Serialize};
 
 /// Available calibers in the game, from light pistol to heavy anti-materiel.

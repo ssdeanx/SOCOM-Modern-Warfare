@@ -6,3 +6,5 @@ edition = "2021"
 [dependencies]
 bevy = { version = "0.18.1", features = ["vorbis"] }
 socom-core = { path = "../core", features = ["bevy"] }
+kira = "0.12"
+mint = "0.5"

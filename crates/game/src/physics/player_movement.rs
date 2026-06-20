@@ -62,9 +62,9 @@ fn camera_relative_direction(input: Vec2, camera_yaw: f32) -> Vec3 {
 /// Also handles jump input, ground detection, and fall damage.
 pub fn player_movement_system(
     time: Res<Time>,
-    move_and_slide: MoveAndSlide,
+    mut move_and_slide: MoveAndSlide,
     spatial_query: SpatialQuery,
-    mut damage_writer: MessageWriter<DamageMessage>,
+    _damage_writer: MessageWriter<DamageMessage>,
     mut query: Query<
         (
             Entity,

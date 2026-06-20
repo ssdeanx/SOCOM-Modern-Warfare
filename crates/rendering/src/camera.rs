@@ -214,7 +214,7 @@ fn target_eye_height(stance: &MovementState) -> f32 {
 }
 
 /// Compute the final camera FOV based on perspective, ADS, and base.
-fn compute_fov(perspective_factor: f32, base_fov: f32, ads_factor: f32) -> f32 {
+fn compute_fov(perspective_factor: f32, _base_fov: f32, ads_factor: f32) -> f32 {
     // Blend between 3rd and 1st person base FOV.
     let blended_base = DEFAULT_FOV_3RD.lerp(DEFAULT_FOV_1ST, perspective_factor);
     // Apply ADS zoom offset.

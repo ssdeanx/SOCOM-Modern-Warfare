@@ -4,7 +4,9 @@ use bevy::prelude::*;
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum SettingsTab {
     Display,
+    #[expect(dead_code, reason = "awaiting settings tabs")]
     Audio,
+    #[expect(dead_code, reason = "awaiting settings tabs")]
     Controls,
 }
 

@@ -25,6 +25,9 @@ pub fn default_input_map() -> InputMap<PlayerAction> {
     input_map.insert(PlayerAction::SwapPrimary, KeyCode::Digit1);
     input_map.insert(PlayerAction::SwapSidearm, KeyCode::Digit2);
     input_map.insert(PlayerAction::ShoulderSwap, KeyCode::KeyQ);
+    input_map.insert(PlayerAction::CycleEquipment, KeyCode::KeyX);
+    input_map.insert(PlayerAction::UseEquipment, KeyCode::KeyG);
+    input_map.insert(PlayerAction::Melee, KeyCode::KeyF);
 
     // Gamepad bindings
     input_map.insert_dual_axis(PlayerAction::Move, GamepadStick::LEFT);
@@ -41,6 +44,9 @@ pub fn default_input_map() -> InputMap<PlayerAction> {
     input_map.insert(PlayerAction::SwapPrimary, GamepadButton::DPadUp);
     input_map.insert(PlayerAction::SwapSidearm, GamepadButton::DPadRight);
     input_map.insert(PlayerAction::ShoulderSwap, GamepadButton::LeftTrigger2);
+    input_map.insert(PlayerAction::CycleEquipment, GamepadButton::DPadLeft);
+    input_map.insert(PlayerAction::UseEquipment, GamepadButton::RightTrigger2);
+    input_map.insert(PlayerAction::Melee, GamepadButton::RightThumb);
 
     input_map
 }

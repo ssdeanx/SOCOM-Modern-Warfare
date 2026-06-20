@@ -81,6 +81,7 @@ pub struct VisionCone {
     /// Horizontal field of view in radians (full width).
     pub fov_h: f32,
     /// Vertical field of view in radians (full height).
+    #[expect(dead_code, reason = "awaiting vertical FOV implementation")]
     pub fov_v: f32,
     /// Maximum detection range in metres.
     pub range: f32,

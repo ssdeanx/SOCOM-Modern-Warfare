@@ -1,8 +1,7 @@
 use bevy::prelude::*;
-use avian3d::prelude::*;
 
-use socom_core::components::{Player, Team};
 use crate::physics::layers::CharacterController;
+use socom_core::components::{Player, Team};
 
 /// Formation offsets relative to player (index 0 = left, 1 = right, 2 = rear).
 const FORMATION_OFFSETS: [Vec3; 3] = [
@@ -14,12 +13,19 @@ const FORMATION_OFFSETS: [Vec3; 3] = [
 /// Moves teammates to their formation positions relative to the player.
 pub fn squad_formation_system(
     player_query: Query<&Transform, (With<Player>, Without<Team>)>,
-    mut teammate_query: Query<(Entity, &mut CharacterController, &mut Transform), (With<Team>, Without<Player>)>,
+    mut teammate_query: Query<
+        (Entity, &mut CharacterController, &mut Transform),
+        (With<Team>, Without<Player>),
+    >,
     time: Res<Time>,
 ) {
     let dt = time.delta_secs();
-    if dt <= 0.0 { return; }
-    let Ok(player_transform) = player_query.single() else { return; };
+    if dt <= 0.0 {
+        return;
+    }
+    let Ok(player_transform) = player_query.single() else {
+        return;
+    };
     let player_pos = player_transform.translation;
     let player_forward = *player_transform.forward();
 
@@ -27,7 +33,9 @@ pub fn squad_formation_system(
     let player_right = player_forward.cross(Vec3::Y).normalize();
 
     for (i, (_, mut controller, mut transform)) in teammate_query.iter_mut().enumerate() {
-        if i >= FORMATION_OFFSETS.len() { break; }
+        if i >= FORMATION_OFFSETS.len() {
+            break;
+        }
         let offset = FORMATION_OFFSETS[i];
         // Transform offset from local to world space
         let world_offset = player_right * offset.x + Vec3::Y * offset.y + player_forward * offset.z;

@@ -86,3 +86,28 @@ pub struct ItemEquipMessage {
     pub slot: u8,
     pub equip: bool,
 }
+
+// EQUIPMENT
+
+#[derive(Message, Debug, Clone)]
+pub struct EquipmentUsedMessage {
+    pub entity: Entity,
+    pub equip_type: String,
+    pub position: Vec3,
+    pub direction: Vec3,
+}
+
+#[derive(Message, Debug, Clone)]
+pub struct GrenadeDetonatedMessage {
+    pub position: Vec3,
+    pub damage: f32,
+    pub radius: f32,
+    pub source: Entity,
+}
+
+#[derive(Message, Debug, Clone)]
+pub struct MeleeHitMessage {
+    pub attacker: Entity,
+    pub target: Entity,
+    pub damage: f32,
+}

@@ -6,6 +6,7 @@ use crate::combat::death::DeathMessage;
 use crate::messages::{LevelUpMessage, XpGainedMessage};
 
 /// Source of XP gain.
+#[expect(dead_code, reason = "awaiting XP source differentiation")]
 #[derive(Clone, Copy, Debug)]
 pub enum XpSource {
     Kill,
@@ -54,7 +55,7 @@ pub fn xp_event_listener(
     mut xp_writer: bevy::ecs::message::MessageWriter<XpGainedMessage>,
     mut level_writer: bevy::ecs::message::MessageWriter<LevelUpMessage>,
     mut progression: ResMut<PlayerProgression>,
-    team_query: Query<&Team>,
+    _team_query: Query<&Team>,
     player_query: Query<Entity, With<Player>>,
 ) {
     let Ok(player_entity) = player_query.single() else {

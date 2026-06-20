@@ -5,8 +5,10 @@ use leafwing_input_manager::Actionlike;
 #[derive(Actionlike, Clone, Copy, PartialEq, Eq, Hash, Reflect, Debug)]
 pub enum PlayerAction {
     /// WASD / Left Stick
+    #[actionlike(DualAxis)]
     Move,
     /// Mouse / Right Stick
+    #[actionlike(DualAxis)]
     Look,
     /// Shift / L3
     Sprint,
@@ -32,4 +34,10 @@ pub enum PlayerAction {
     SwapSidearm,
     /// Q / LeftShoulder — swap camera shoulder
     ShoulderSwap,
+    /// 3 — cycle active equipment slot
+    CycleEquipment,
+    /// G — use/throw selected equipment
+    UseEquipment,
+    /// F — melee attack (knife)
+    Melee,
 }

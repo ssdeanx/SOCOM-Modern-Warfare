@@ -14,9 +14,12 @@ pub struct InCover {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CoverType {
+    #[expect(dead_code, reason = "awaiting full cover system")]
     Low,
     High,
+    #[expect(dead_code, reason = "awaiting full cover system")]
     CornerLeft,
+    #[expect(dead_code, reason = "awaiting full cover system")]
     CornerRight,
 }
 

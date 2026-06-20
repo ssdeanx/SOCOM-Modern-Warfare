@@ -11,6 +11,7 @@ pub enum MenuPage {
     Main,
     Settings,
     Keybinds,
+    #[expect(dead_code, reason = "awaiting quit confirmation dialog")]
     QuitConfirm,
 }
 

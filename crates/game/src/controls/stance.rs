@@ -46,26 +46,50 @@ fn transition_time(from: &MovementState, to: &MovementState) -> f32 {
 /// Handles stance input with realistic transition timers.
 pub fn stance_transition_system(
     time: Res<Time>,
-    mut player_query: Query<(&ActionState<PlayerAction>, &mut MovementState, &mut StanceTransition), With<Player>>,
+    mut player_query: Query<
+        (
+            &ActionState<PlayerAction>,
+            &mut MovementState,
+            &mut StanceTransition,
+        ),
+        With<Player>,
+    >,
 ) {
     let dt = time.delta_secs();
-    if dt <= 0.0 { return; }
-    let Ok((action_state, mut current_stance, mut transition)) = player_query.single_mut() else { return; };
+    if dt <= 0.0 {
+        return;
+    }
+    let Ok((action_state, mut current_stance, mut transition)) = player_query.single_mut() else {
+        return;
+    };
 
     // Determine requested stance from input
     let requested = if action_state.just_pressed(&PlayerAction::Sprint) {
-        if *current_stance == MovementState::Sprinting { Some(MovementState::Standing) }
-        else { Some(MovementState::Sprinting) }
+        if *current_stance == MovementState::Sprinting {
+            Some(MovementState::Standing)
+        } else {
+            Some(MovementState::Sprinting)
+        }
     } else if action_state.just_pressed(&PlayerAction::Crouch) {
-        if *current_stance == MovementState::Crouching { Some(MovementState::Standing) }
-        else { Some(MovementState::Crouching) }
+        if *current_stance == MovementState::Crouching {
+            Some(MovementState::Standing)
+        } else {
+            Some(MovementState::Crouching)
+        }
     } else if action_state.just_pressed(&PlayerAction::Prone) {
-        if *current_stance == MovementState::Prone { Some(MovementState::Standing) }
-        else { Some(MovementState::Prone) }
-    } else { None };
+        if *current_stance == MovementState::Prone {
+            Some(MovementState::Standing)
+        } else {
+            Some(MovementState::Prone)
+        }
+    } else {
+        None
+    };
 
     if let Some(target) = requested {
-        if target == *current_stance { return; }
+        if target == *current_stance {
+            return;
+        }
         let trans_time = transition_time(&current_stance, &target);
         if trans_time <= 0.0 {
             // Instant transition (sprint cancel)

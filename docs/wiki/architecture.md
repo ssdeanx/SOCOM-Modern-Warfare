@@ -1,182 +1,251 @@
-# Architecture
+# SOCOM Tactical Shooter — System Architecture
 
-SOCOM Tactical Shooter is structured as a **layered ECS application** on top of the Bevy game engine. The Cargo workspace splits responsibilities into five crates with a strict dependency direction: `core` → `input`, `rendering`, `audio` → `game`.
+## Overview
 
-## System Architecture
-
-```mermaid
-flowchart TD
-    subgraph External
-        Win[Window / OS]
-        Phys["Avian Physics Engine"]
-        AudioDevice["Audio Output"]
-    end
-
-    subgraph "Bevy Engine Layer"
-        BP["DefaultPlugins
-        (render, window, asset,
-        audio, UI, input)"]
-        PP["PhysicsPlugins
-        (avian3d)"]
-    end
-
-    subgraph "Internal Crates"
-        CORE["socom-core
-        data types, components"]
-        INPUT["socom-input
-        PlayerAction, bindings"]
-        REND["socom-rendering
-        camera follow, mouse look"]
-        AUDIO["socom-audio
-        footsteps, ambient"]
-    end
-
-    subgraph "Game Binary"
-        MAIN["socom-game::main"]
-        STATES["State Machine
-        MainMenu / Loading / InGame"]
-        PLAYER["Player Spawn + Bundle"]
-        PHYS_SYS["Movement + Stance Systems"]
-        LVL["Procedural Level"]
-    end
-
-    Win --> BP
-    BP --> MAIN
-    MAIN --> PP
-    PP --> Phys
-
-    MAIN --> INPUT
-    MAIN --> REND
-    MAIN --> AUDIO
-    MAIN --> CORE
-    MAIN --> STATES
-
-    STATES --> PLAYER
-    STATES --> PHYS_SYS
-    STATES --> LVL
-
-    INPUT --> CORE
-    REND --> CORE
-    AUDIO --> CORE
-
-    Phys --> PHYS_SYS
-    PLAYER --> PHYS_SYS
-    PLAYER --> REND
-
-    Win -.->|"Mouse + Keyboard"| INPUT
-    AudioDevice -.->|"AudioPlayer commands"| AUDIO
-```
-
-## Component / Data Flow
-
-```mermaid
-flowchart LR
-    subgraph Input[Input Layer]
-        KB["Keyboard (WASD/Shift/C/Z)"]
-        GP["Gamepad (Stick/Buttons)"]
-        MOUSE["Mouse Move (AccumulatedMouseMotion)"]
-    end
-
-    subgraph CAM["Camera Layer"]
-        CF["camera_follow_system
-        lerps toward shoulder offset"]
-        CL["camera_look_system
-        pitch/yaw from mouse delta"]
-    end
-
-    subgraph PHYS["Physics Layer"]
-        MS["player_movement_system
-        ActionState -> LinearVelocity"]
-        SS["player_stance_system
-        toggle sprint/crouch/prone"]
-    end
-
-    subgraph AUDIO_LAYER["Audio Layer"]
-        FS["footstep_system
-        timed AudioPlayer spawns"]
-        AS["ambient_system
-        background loop"]
-    end
-
-    KB --> MS
-    KB --> SS
-    GP --> MS
-    GP --> SS
-    MOUSE --> CL
-
-    MS -->|"LinearVelocity"| Avian3d
-    SS -->|"MovementState"| MS
-
-    CF -->|"Transform"| Camera3d
-    CL --> CF
-
-    MS -.->|"MovementState"| FS
-```
+SOCOM Tactical Shooter is a 3rd/1st-person tactical shooter built in **Rust** with **Bevy 0.18.1**, **avian3d 0.6.1** physics, and **leafwing-input-manager 0.20**. It uses a **multi-crate Cargo workspace** with 5 crates and 100+ source files across 16 game module directories.
 
 ## Crate Dependency Graph
 
-```mermaid
-flowchart TD
-    GAME["socom-game (binary)"]
-    INPUT_C["socom-input"]
-    REND_C["socom-rendering"]
-    AUDIO_C["socom-audio"]
-    CORE_C["socom-core"]
-    BEVY["bevy 0.18"]
-    AVN["avian3d 0.6"]
-    LW["leafwing-input-manager 0.20"]
-    SERDE["serde 1.x"]
-    GLAM["glam 0.29"]
-
-    GAME --> INPUT_C
-    GAME --> REND_C
-    GAME --> AUDIO_C
-    GAME --> CORE_C
-    GAME --> BEVY
-    GAME --> AVN
-
-    INPUT_C --> CORE_C
-    INPUT_C --> BEVY
-    INPUT_C --> LW
-
-    REND_C --> CORE_C
-    REND_C --> BEVY
-
-    AUDIO_C --> CORE_C
-    AUDIO_C --> BEVY
-
-    CORE_C -.->|"optional bevy feature"| BEVY
-    CORE_C --> SERDE
-    CORE_C --> GLAM
+```
+┌─────────────────────┐
+│  game (binary)      │  88+ files, 16 module dirs
+│  Bevy 0.18.1        │  gameplay, AI, combat, gear, HUD, physics, etc.
+└─────┬───┬───┬───┬───┘
+      │   │   │   │
+      ▼   ▼   ▼   ▼
+┌──────────┐ ┌──────────┐ ┌──────────────┐ ┌───────────┐
+│ core     │ │ input    │ │ rendering    │ │ audio     │
+│ (lib)    │ │ (lib)    │ │ (lib)        │ │ (lib)     │
+│ 3 files  │ │ 3 files  │ │ 2 files      │ │ 4 files   │
+│ pure     │ │ leafwing │ │ camera rig   │ │ bevy_audio│
+│ data     │ │ bindings │ │ post-process │ │ + kira    │
+│ types    │ │          │ │              │ │ 0.12 host │
+└──────────┘ └──────────┘ └──────────────┘ └───────────┘
+      │
+      ▼  (no Bevy dep)
+  serde + glam (only)
 ```
 
-**Key rule:** `socom-core` must never depend on Bevy. All other crates depend on `core` with `features = ["bevy"]` to derive `Component` on its types.
+### Dependency Rules
+
+- **`core`** must never depend on Bevy. All other crates depend on `core` with `features = ["bevy"]` to derive `Component` on its types.
+- **`game`** depends on all four other crates + Bevy 0.18.1, avian3d 0.6.1, leafwing 0.20.
+- **`input`** depends on bevy 0.18.1, leafwing 0.20, and core.
+- **`rendering`** depends on bevy 0.18.1, core, input, avian3d 0.6.1.
+- **`audio`** depends on bevy 0.18.1, core, kira 0.12.
+
+## Crate Responsibilities
+
+| Crate | Files | Purpose | Key Exports |
+|-------|-------|---------|-------------|
+| `core` | 3 | Pure data types, zero Bevy dep | `Player`, `Health`, `Weapon`, `WeaponSlot`, `MovementState`, `Team`, `Shoulder`, `GameSettings`, `InputMapping`, `Paused`, `SensitivityMultiplier` |
+| `input` | 3 | leafwing-input-manager bindings | `PlayerAction` (17 variants), `InputPlugin`, `default_input_map()` |
+| `rendering` | 2 | Camera rig + post-processing | `ThirdPersonCamera`, `CameraPlugin`, `PostProcessingPlugin`, `PerspectiveState` |
+| `audio` | 4 | bevy_audio + kira standalone host | `AudioPlugin`, `KiraAudioState`, `FootstepPlugin`, `AmbientPlugin` |
+| `game` | 88+ | Everything gameplay. Binary crate. | 16 module directories + 10 root files |
+
+## Game Module Map (16 directories)
+
+| Directory | Files | Purpose |
+|-----------|-------|---------|
+| `combat/` | 10 | shooting, damage, death, reload, weapon_bob, weapon_model, weapon_state, vfx, impacts, destruction |
+| `weapons/` | 8 | chassis, caliber, barrel, sight, underbarrel, magazine, stock, CompleteWeapon |
+| `gear/` | 10 | items, inventory, attachments, workshop, throwable, deployable, melee, equipment_types, equipment_inventory, healing |
+| `hud/` | 9 | elements, systems, xp_notification, stamina_bar, achievement_popup, kill_feed, squad_status, mod |
+| `physics/` | 5 | player_movement, enemy_movement, stance, layers, mod |
+| `ai/` | 3 | mod, enemy (FSM), teammate |
+| `squad/` | 3 | mod, orders (command dispatch), formation |
+| `tactical/` | 4 | mod, command_wheel, cover, suppression |
+| `drones/` | 1 | Recon UAV, FPV Strike, Grenade Drone, Mine Drone |
+| `progression/` | 5 | xp, stats, achievements, specializations, mod |
+| `controls/` | 3 | mod, stance (transition timers), turn_rate |
+| `states/` | 4 | mod, main_menu, loading, ingame |
+| `menu/` | 3 | mod, settings, keybinds |
+| `feedback/` | 4 | hit_marker, vignette, enemy_fx, mod |
+| `missions/` | 1 | MissionState resource, 5 objective types |
+| `stamina/` | 1 | Stamina drain/regen + sway/spread penalties |
+| `weapon_handling/` | 1 | WeaponWeight (Light/Medium/Heavy/Sniper) |
+| `ammo_type/` | 1 | AmmoType enum (FMJ/HP/AP/Tracer) |
+| `breathing/` | 1 | Hold-breath system |
+| `audio_relay/` | 1 | Game message → kira audio bridge |
+| `destruction/` | 6 | Material penetration, debris, glass, vehicles, collapse |
+| **(root)** | 10 | main, player, level, messages, pause, console, camera_control, settings, settings_applier, save_load |
 
 ## State Machine
 
 ```mermaid
-flowchart LR
-    START((App Start))
-    MENU["MainMenu
-    (Camera2d + UI text)"]
-    LOAD["Loading
-    (0.5s timer)"]
-    GAME["InGame
-    + Camera + Level + Player"]
-
-    START -->|"init_state"| MENU
-    MENU -->|"Space pressed"| LOAD
-    LOAD -->|"Timer just_finished"| GAME
-    GAME -.->|"Phase 1:
-    return to menu"| MENU
+stateDiagram-v2
+    [*] --> MainMenu
+    MainMenu --> Loading : New Game / Start
+    Loading --> InGame : 0.5s timer / assets loaded
+    InGame --> MainMenu : Escape → Main Menu
+    InGame --> InGame : Death → 3s respawn
+    MainMenu --> MainMenu : Settings / Quit
 ```
 
-States are defined as `AppState` enum with `States` derive from `bevy_state`.
+States are defined in `crates/game/src/states/mod.rs` as `AppState` enum:
 
-## Key Design Decisions
+- `MainMenu` — title screen with New Game, Settings, Quit
+- `Loading` — asset loading phase with progress bar
+- `InGame` — active gameplay with all systems running
 
-1. **Core stays pure** — `socom-core` has zero Bevy dependency. The optional `"bevy"` feature gates `bevy_ecs::Component` derives via `#[cfg_attr(feature = "bevy", ...)]`. This allows core types to be shared with non-Bevy systems (server, editor, CLI tools).
-2. **Action-based input** — Using `leafwing-input-manager`, all player actions are defined as an enum variant (`PlayerAction::Sprint`, `PlayerAction::Crouch`). The input map binds physical keys/buttons to actions, decoupling game logic from hardware.
-3. **Third-person camera is a component** — `ThirdPersonCamera` is an ECS component attached to the camera entity. It stores its target entity, pitch/yaw angles, shoulder side, and lerp factor. Two systems (follow + look) process it independently.
-4. **Physics via LinearVelocity** — Phase 0 uses direct `LinearVelocity` manipulation on a `RigidBody::Dynamic` entity. Phase 1 will switch to Avian's `KinematicCharacterController` + `MoveAndSlide` for proper stair/ramp handling.
-5. **Bevy 0.18 audio patterns** — No `Res<Audio>`; audio is spawned as entities: `commands.spawn((AudioPlayer::new(handle), PlaybackSettings::ONCE, ...))`.
+## Message Bus Architecture
+
+The game uses Bevy **Messages** (not Events) with 18 message types:
+
+```mermaid
+flowchart LR
+    subgraph Producers
+        S[shooting_system]
+        DC[death_check_system]
+        COV[cover_detection_system]
+        SUPP[suppression_system]
+        GREN[grenade_detonation]
+        EQUIP[equipment_usage]
+        XP[xp_system]
+        ACH[achievements]
+        CMD[command_wheel]
+    end
+
+    subgraph Messages
+        DM[DamageMessage]
+        WFM[WeaponFiredMessage]
+        PDM[PlayerDamagedMessage]
+        HCM[HitConfirmedMessage]
+        XGM[XpGainedMessage]
+        LUM[LevelUpMessage]
+        AUM[AchievementUnlockMessage]
+        SOS[SquadOrderMessage]
+        SSM[SquadStatusMessage]
+        CSM[CoverStateMessage]
+        SM[SuppressionMessage]
+        IPM[ItemPickupMessage]
+        IEM[ItemEquipMessage]
+        EUM[EquipmentUsedMessage]
+        GDM[GrenadeDetonatedMessage]
+        MHM[MeleeHitMessage]
+        DTM[DestructionTransitionMessage]
+        DTH[DeathMessage]
+    end
+
+    subgraph Consumers
+        APPLY[apply_damage_system]
+        HUD[hud_systems]
+        STATS[stats_tracking]
+        AI[squad_ai]
+        FX[feedback/VFX]
+        AUDIO[audio_relay]
+        DEST[destruction_systems]
+        RESP[respawn_system]
+    end
+
+    S --> DM
+    S --> WFM
+    S --> HCM
+    DC --> DTH
+    COV --> CSM
+    SUPP --> SM
+    GREN --> GDM
+    EQUIP --> EUM
+    XP --> XGM
+    XP --> LUM
+    ACH --> AUM
+    CMD --> SOS
+    DM --> APPLY
+    DM --> STATS
+    DTH --> RESP
+    DTH --> STATS
+    WFM --> AUDIO
+    WFM --> STATS
+    HCM --> FX
+    PDM --> FX
+    HCM --> AUDIO
+    EUM --> AUDIO
+    GDM --> DEST
+    DTM --> DEST
+    SOS --> AI
+```
+
+## All 18 System Messages
+
+| Message | Source → Consumer |
+|---------|------------------|
+| `DamageMessage` | shooting → damage, stats, feedback, destruction |
+| `DeathMessage` | death_check → player_death, stats, xp, effects |
+| `WeaponFiredMessage` | shooting → stats, audio, VFX |
+| `PlayerDamagedMessage` | damage → vignette, suppression |
+| `HitConfirmedMessage` | shooting → hit_marker, audio, VFX |
+| `XpGainedMessage` | xp system → HUD |
+| `LevelUpMessage` | xp system → HUD, gear unlock |
+| `AchievementUnlockMessage` | achievements → HUD popup |
+| `SquadOrderMessage` | command_wheel → squad AI |
+| `SquadStatusMessage` | squad AI → HUD |
+| `CoverStateMessage` | cover_detection → movement, weapons |
+| `SuppressionMessage` | suppression → feedback, weapons |
+| `ItemPickupMessage` | loot → inventory |
+| `ItemEquipMessage` | gear UI → inventory, weapons |
+| `EquipmentUsedMessage` | equipment → feedback, audio |
+| `GrenadeDetonatedMessage` | grenade → damage, destruction |
+| `MeleeHitMessage` | melee → feedback, stats |
+| `DestructionTransitionMessage` | destruction → FX, audio |
+
+## App Startup Flow (main.rs)
+
+```mermaid
+flowchart TD
+    A[main] --> B[DefaultPlugins + Window 1280x720]
+    B --> C[PhysicsPlugins avian3d]
+    C --> D[Dev Tools: FPS Overlay, WorldInspector]
+    D --> E[HanabiPlugin GPU Particles]
+    E --> F[PostProcessingPlugin]
+    F --> G[Core Resources: RespawnState, Timer 120Hz]
+    G --> H[Register 14 Messages]
+    H --> I[Add Internal Plugins]
+    I --> J[Init State Machine & Global Systems]
+    J --> K[Add Direct Plugins]
+    K --> L[Add State Plugins]
+    L --> M[app.run]
+
+    subgraph I_Internal[Internal Plugins]
+        I1[InputPlugin]
+        I2[CameraPlugin]
+        I3[SocomAudioPlugin]
+        I4[PausePlugin]
+        I5[CameraControlPlugin]
+        I6[FeedbackPlugin]
+        I7[SettingsPlugin]
+        I8[ConsolePlugin]
+    end
+
+    subgraph K_Direct[Direct Plugins]
+        D1[DronePlugin]
+        D2[BreathingPlugin]
+        D3[ControlsPlugin]
+        D4[MissionPlugin]
+        D5[ProgressionPlugin]
+        D6[GearPlugin]
+        D7[VfxPlugin]
+        D8[AudioRelayPlugin]
+    end
+
+    subgraph L_State[State Plugins]
+        L1[MainMenuPlugin]
+        L2[LoadingPlugin]
+        L3[InGamePlugin]
+    end
+```
+
+## Key Technology Versions
+
+| Dep | Version | Notes |
+|-----|---------|-------|
+| bevy | **0.18.1** | Pinned across ALL crates |
+| avian3d | **0.6.1** | Physics + character controller |
+| leafwing-input-manager | 0.20.x | Input abstraction |
+| serde + ron | 1.x / 0.12 | Serialization |
+| kira | 0.12 | Audio middleware (standalone) |
+| bevy_hanabi | 0.18.0 | GPU particles |
+| bevy_replicon | 0.41.0-rc.1 | Networking (Phase 6) |
+| lightyear | 0.26.4 | Rollback networking (Phase 6) |
+| bevy-inspector-egui | 0.36.0 | Runtime entity inspector |
+| iyes_progress | 0.17.0-rc.1 | Loading screen |

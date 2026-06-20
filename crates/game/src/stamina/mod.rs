@@ -44,18 +44,29 @@ impl Default for Stamina {
 }
 
 impl Stamina {
-    pub fn ratio(&self) -> f32 { self.current / self.max }
-    pub fn is_exhausted(&self) -> bool { self.current <= 0.0 || self.exhausted }
+    pub fn ratio(&self) -> f32 {
+        self.current / self.max
+    }
+    pub fn is_exhausted(&self) -> bool {
+        self.current <= 0.0 || self.exhausted
+    }
 }
 
 /// Updates stamina every frame based on movement state.
 pub fn stamina_system(
     time: Res<Time>,
-    mut player_query: Query<(&ActionState<PlayerAction>, &MovementState, &mut Stamina), With<Player>>,
+    mut player_query: Query<
+        (&ActionState<PlayerAction>, &MovementState, &mut Stamina),
+        With<Player>,
+    >,
 ) {
     let dt = time.delta_secs();
-    if dt <= 0.0 { return; }
-    let Ok((action_state, movement_state, mut stamina)) = player_query.single_mut() else { return; };
+    if dt <= 0.0 {
+        return;
+    }
+    let Ok((_action_state, movement_state, mut stamina)) = player_query.single_mut() else {
+        return;
+    };
 
     let sprinting = *movement_state == MovementState::Sprinting;
 
@@ -69,27 +80,43 @@ pub fn stamina_system(
         stamina.regen_timer.tick(time.delta());
         if stamina.regen_timer.just_finished() {
             stamina.current = (stamina.current + REGEN_RATE * dt).min(stamina.max);
-            if stamina.current > 10.0 { stamina.exhausted = false; }
+            if stamina.current > 10.0 {
+                stamina.exhausted = false;
+            }
         }
     }
 }
 
 /// Returns the current speed multiplier based on stamina.
 pub fn stamina_speed_mult(stamina: &Stamina) -> f32 {
-    if stamina.is_exhausted() { EXHAUSTED_SPEED_MULT } else { 1.0 }
+    if stamina.is_exhausted() {
+        EXHAUSTED_SPEED_MULT
+    } else {
+        1.0
+    }
 }
 
 /// Returns the current weapon sway multiplier (higher = more sway).
 pub fn stamina_sway_mult(stamina: &Stamina) -> f32 {
-    if stamina.is_exhausted() { 2.5 }
-    else if stamina.ratio() < 0.3 { 1.8 }
-    else if stamina.ratio() < 0.6 { 1.3 }
-    else { 1.0 }
+    if stamina.is_exhausted() {
+        2.5
+    } else if stamina.ratio() < 0.3 {
+        1.8
+    } else if stamina.ratio() < 0.6 {
+        1.3
+    } else {
+        1.0
+    }
 }
 
 /// Returns the current accuracy/spread multiplier (higher = worse accuracy).
+#[expect(dead_code, reason = "awaiting shooting system integration")]
 pub fn stamina_spread_mult(stamina: &Stamina) -> f32 {
-    if stamina.is_exhausted() { 2.0 }
-    else if stamina.ratio() < 0.3 { 1.5 }
-    else { 1.0 }
+    if stamina.is_exhausted() {
+        2.0
+    } else if stamina.ratio() < 0.3 {
+        1.5
+    } else {
+        1.0
+    }
 }

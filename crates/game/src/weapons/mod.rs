@@ -156,6 +156,30 @@ impl CompleteWeapon {
             StockType::Standard,
         )
     }
+
+    /// Factory: default M24 SWS with SniperScope and bipod.
+    pub fn default_m24() -> Self {
+        Self::assemble(
+            WeaponChassis::m24(),
+            BarrelType::Standard,
+            SightType::SniperScope,
+            UnderbarrelType::Bipod,
+            MagazineType::Standard, // Internal mag, unchanged
+            StockType::Precision,
+        )
+    }
+
+    /// Factory: default L96A1 with SniperScope and bipod.
+    pub fn default_l96a1() -> Self {
+        Self::assemble(
+            WeaponChassis::l96a1(),
+            BarrelType::Standard,
+            SightType::SniperScope,
+            UnderbarrelType::Bipod,
+            MagazineType::Standard,
+            StockType::Precision,
+        )
+    }
 }
 
 #[derive(Component, Debug, Clone)]

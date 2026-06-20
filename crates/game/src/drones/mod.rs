@@ -5,11 +5,15 @@
 /// - **FPV Strike Drone (J key):** Fast, low-altitude, one-time use explosive drone.
 ///   Manual detonation or auto-detonate on proximity to enemies.
 use avian3d::prelude::*;
+use bevy::ecs::message::MessageWriter;
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::*;
 
 use socom_core::components::Player;
 use socom_input::actions::PlayerAction;
+
+use crate::combat::damage::DamageMessage;
+use crate::gear::equipment_types::{Deployable, EquipmentType, GrenadeProjectile};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // DRONE TYPE
@@ -21,6 +25,10 @@ pub enum DroneType {
     Recon,
     /// First-Person View strike drone: fast, explosive, one-time use.
     FpvStrike,
+    /// Grenade drone: carries 4 frag hardpoints, drops ordnance on command.
+    GrenadeDrone,
+    /// Mine drone: carries 3 mines, dispenses in patterns over target area.
+    MineDrone,
 }
 
 impl DroneType {
@@ -33,8 +41,10 @@ impl DroneType {
 
     pub fn max_battery(&self) -> f32 {
         match self {
-            DroneType::Recon => 120.0,    // 40 seconds of flight at 3/s drain
-            DroneType::FpvStrike => 30.0, // 10 seconds — short, fast attack
+            DroneType::Recon => 120.0,
+            DroneType::FpvStrike => 30.0,
+            DroneType::GrenadeDrone => 60.0,
+            DroneType::MineDrone => 90.0,
         }
     }
 
@@ -42,34 +52,58 @@ impl DroneType {
         match self {
             DroneType::Recon => 3.0,
             DroneType::FpvStrike => 3.0,
+            DroneType::GrenadeDrone => 3.0,
+            DroneType::MineDrone => 3.0,
         }
     }
 
     pub fn recharge_rate(&self) -> f32 {
         match self {
             DroneType::Recon => 8.0,
-            DroneType::FpvStrike => 15.0, // Faster recharge for single-use
+            DroneType::FpvStrike => 15.0,
+            DroneType::GrenadeDrone => 10.0,
+            DroneType::MineDrone => 12.0,
         }
     }
 
     pub fn max_speed(&self) -> f32 {
         match self {
             DroneType::Recon => 8.0,
-            DroneType::FpvStrike => 25.0, // Much faster
+            DroneType::FpvStrike => 25.0,
+            DroneType::GrenadeDrone => 15.0,
+            DroneType::MineDrone => 10.0,
         }
     }
 
     pub fn collider_radius(&self) -> f32 {
         match self {
-            DroneType::Recon => 0.3,     // Larger, visible at distance
-            DroneType::FpvStrike => 0.1, // Small, fast-moving
+            DroneType::Recon => 0.3,
+            DroneType::FpvStrike => 0.1,
+            DroneType::GrenadeDrone => 0.2,
+            DroneType::MineDrone => 0.25,
         }
     }
 
     pub fn altitude_default(&self) -> f32 {
         match self {
-            DroneType::Recon => 8.0,     // High altitude
-            DroneType::FpvStrike => 2.0, // Low altitude
+            DroneType::Recon => 8.0,
+            DroneType::FpvStrike => 2.0,
+            DroneType::GrenadeDrone => 3.0,
+            DroneType::MineDrone => 1.5,
+        }
+    }
+
+    pub fn grenade_hardpoints(&self) -> u32 {
+        match self {
+            DroneType::GrenadeDrone => 4,
+            _ => 0,
+        }
+    }
+
+    pub fn mine_count(&self) -> u32 {
+        match self {
+            DroneType::MineDrone => 3,
+            _ => 0,
         }
     }
 }
@@ -100,6 +134,10 @@ pub struct Drone {
     pub explosion_radius: f32,
     /// Explosion damage (FPV only).
     pub explosion_damage: f32,
+    /// Remaining grenade hardpoints (GrenadeDrone only).
+    pub grenade_hardpoints: u32,
+    /// Remaining mines (MineDrone only).
+    pub mine_count: u32,
 }
 
 impl Drone {
@@ -116,6 +154,8 @@ impl Drone {
             detonated: false,
             explosion_radius: 8.0,
             explosion_damage: 200.0,
+            grenade_hardpoints: drone_type.grenade_hardpoints(),
+            mine_count: drone_type.mine_count(),
         }
     }
 
@@ -148,6 +188,8 @@ impl Drone {
 pub struct DroneState {
     pub recon_active: bool,
     pub fpv_active: bool,
+    pub grenade_active: bool,
+    pub mine_active: bool,
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -215,6 +257,7 @@ pub fn drone_control_system(
     camera_query: Query<&Transform, (With<Camera3d>, Without<Player>)>,
     spatial_query: SpatialQuery,
     health_query: Query<&mut socom_core::components::Health>,
+    mut damage_writer: MessageWriter<DamageMessage>,
 ) {
     let dt = time.delta_secs();
     if dt <= 0.0 {
@@ -258,8 +301,12 @@ pub fn drone_control_system(
         }
     }
 
-    // ── Process active drones ──
+    // ── Process active drones (Recon and FpvStrike only) ──
     for (entity, mut drone, mut transform) in drone_query.iter_mut() {
+        // Skip grenade/mine drones — handled by dedicated systems
+        if !matches!(drone.drone_type, DroneType::Recon | DroneType::FpvStrike) {
+            continue;
+        }
         drone.update_battery(dt);
 
         if !drone.has_power() {
@@ -321,7 +368,7 @@ pub fn drone_control_system(
                 apply_drone_explosion(
                     &commands,
                     &spatial_query,
-                    &health_query,
+                    &mut damage_writer,
                     transform.translation,
                     drone.explosion_radius,
                     drone.explosion_damage,
@@ -347,7 +394,7 @@ pub fn drone_control_system(
                 apply_drone_explosion(
                     &commands,
                     &spatial_query,
-                    &health_query,
+                    &mut damage_writer,
                     transform.translation,
                     drone.explosion_radius,
                     drone.explosion_damage,
@@ -378,7 +425,7 @@ pub fn drone_control_system(
 pub fn apply_drone_explosion(
     _commands: &Commands,
     _spatial_query: &SpatialQuery,
-    _health_query: &Query<&mut socom_core::components::Health>,
+    damage_writer: &mut MessageWriter<DamageMessage>,
     center: Vec3,
     radius: f32,
     damage: f32,
@@ -392,7 +439,261 @@ pub fn apply_drone_explosion(
         &filter,
     );
     for &hit_entity in &hits {
-        let _ = (center, radius, damage, hit_entity);
+        damage_writer.write(DamageMessage {
+            target: hit_entity,
+            amount: damage,
+            source: exclude,
+            hit_point: center,
+            hit_normal: Vec3::Y,
+        });
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// GRENADE DRONE SYSTEM
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Handles GrenadeDrone deployment (H key), flight, and frag drop (Space).
+pub fn grenade_drone_system(
+    keys: Res<ButtonInput<KeyCode>>,
+    time: Res<Time>,
+    mut drone_state: ResMut<DroneState>,
+    mut commands: Commands,
+    mut drone_query: Query<(Entity, &mut Drone, &mut Transform)>,
+    player_query: Query<&Transform, With<Player>>,
+    camera_query: Query<&Transform, (With<Camera3d>, Without<Player>)>,
+) {
+    let dt = time.delta_secs();
+    if dt <= 0.0 {
+        return;
+    }
+
+    let player_pos = player_query
+        .iter()
+        .next()
+        .map(|t| t.translation)
+        .unwrap_or(Vec3::ZERO);
+
+    // ── Deploy/recall: H key ──
+    if keys.just_pressed(KeyCode::KeyH) {
+        drone_state.grenade_active = !drone_state.grenade_active;
+        if drone_state.grenade_active {
+            let spawn_pos =
+                player_pos + Vec3::new(0.0, DroneType::GrenadeDrone.altitude_default(), -3.0);
+            commands.spawn(GrenadeDroneBundle::new(spawn_pos));
+        } else {
+            for (e, drone, _) in drone_query.iter() {
+                if drone.drone_type == DroneType::GrenadeDrone {
+                    commands.entity(e).despawn();
+                }
+            }
+        }
+    }
+
+    // ── Process active grenade drones ──
+    for (entity, mut drone, mut transform) in drone_query.iter_mut() {
+        if drone.drone_type != DroneType::GrenadeDrone {
+            continue;
+        }
+
+        drone.update_battery(dt);
+        if !drone.has_power() {
+            drone.deployed = false;
+            drone_state.grenade_active = false;
+            commands.entity(entity).despawn();
+            continue;
+        }
+
+        // ══ Flight controls (camera-relative) ══
+        if let Ok(cam) = camera_query.single() {
+            let fwd = *cam.forward();
+            let rgt = *cam.right();
+            let mut movement = Vec3::ZERO;
+            if keys.pressed(KeyCode::KeyW) {
+                movement += fwd;
+            }
+            if keys.pressed(KeyCode::KeyS) {
+                movement -= fwd;
+            }
+            if keys.pressed(KeyCode::KeyA) {
+                movement -= rgt;
+            }
+            if keys.pressed(KeyCode::KeyD) {
+                movement += rgt;
+            }
+            if keys.pressed(KeyCode::KeyQ) {
+                movement.y += 1.0;
+            }
+            if keys.pressed(KeyCode::KeyE) {
+                movement.y -= 1.0;
+            }
+            let max_speed = drone.drone_type.max_speed() * drone.speed_mult;
+            if movement != Vec3::ZERO {
+                let target_vel = movement.normalize_or_zero() * max_speed;
+                drone.velocity = drone.velocity.lerp(target_vel, 0.2);
+            } else {
+                drone.velocity *= 0.9;
+            }
+            transform.translation += drone.velocity * dt;
+            if drone.velocity.length_squared() > 0.1 {
+                transform.look_to(drone.velocity.normalize_or_zero(), Vec3::Y);
+            }
+        }
+
+        // ══ SPACE drops a frag grenade ══
+        if keys.just_pressed(KeyCode::Space) && drone.grenade_hardpoints > 0 {
+            drone.grenade_hardpoints -= 1;
+            commands.spawn((
+                GrenadeProjectile {
+                    fuse_timer: Timer::from_seconds(0.5, TimerMode::Once),
+                    equip_type: EquipmentType::FragGrenade,
+                    damage: 150.0,
+                    radius: 6.0,
+                    source: entity,
+                },
+                Transform::from_translation(transform.translation),
+            ));
+        }
+
+        // ══ Auto-return when empty or low battery ══
+        if drone.grenade_hardpoints == 0 || drone.battery_ratio() < 0.15 {
+            let to_player = player_pos - transform.translation;
+            if to_player.length_squared() > 4.0 {
+                drone.velocity =
+                    to_player.normalize_or_zero() * drone.drone_type.max_speed();
+                transform.translation += drone.velocity * dt;
+            } else {
+                drone.deployed = false;
+                drone_state.grenade_active = false;
+                commands.entity(entity).despawn();
+            }
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MINE DRONE SYSTEM
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Handles MineDrone deployment (N key), flight, and mine deployment (G key).
+pub fn mine_drone_system(
+    keys: Res<ButtonInput<KeyCode>>,
+    time: Res<Time>,
+    mut drone_state: ResMut<DroneState>,
+    mut commands: Commands,
+    mut drone_query: Query<(Entity, &mut Drone, &mut Transform)>,
+    player_query: Query<&Transform, With<Player>>,
+    camera_query: Query<&Transform, (With<Camera3d>, Without<Player>)>,
+) {
+    let dt = time.delta_secs();
+    if dt <= 0.0 {
+        return;
+    }
+
+    let player_pos = player_query
+        .iter()
+        .next()
+        .map(|t| t.translation)
+        .unwrap_or(Vec3::ZERO);
+
+    // ── Deploy/recall: N key ──
+    if keys.just_pressed(KeyCode::KeyN) {
+        drone_state.mine_active = !drone_state.mine_active;
+        if drone_state.mine_active {
+            let spawn_pos =
+                player_pos + Vec3::new(0.0, DroneType::MineDrone.altitude_default(), -3.0);
+            commands.spawn(MineDroneBundle::new(spawn_pos));
+        } else {
+            for (e, drone, _) in drone_query.iter() {
+                if drone.drone_type == DroneType::MineDrone {
+                    commands.entity(e).despawn();
+                }
+            }
+        }
+    }
+
+    // ── Process active mine drones ──
+    for (entity, mut drone, mut transform) in drone_query.iter_mut() {
+        if drone.drone_type != DroneType::MineDrone {
+            continue;
+        }
+
+        drone.update_battery(dt);
+        if !drone.has_power() {
+            drone.deployed = false;
+            drone_state.mine_active = false;
+            commands.entity(entity).despawn();
+            continue;
+        }
+
+        // ══ Flight controls (camera-relative) ══
+        if let Ok(cam) = camera_query.single() {
+            let fwd = *cam.forward();
+            let rgt = *cam.right();
+            let mut movement = Vec3::ZERO;
+            if keys.pressed(KeyCode::KeyW) {
+                movement += fwd;
+            }
+            if keys.pressed(KeyCode::KeyS) {
+                movement -= fwd;
+            }
+            if keys.pressed(KeyCode::KeyA) {
+                movement -= rgt;
+            }
+            if keys.pressed(KeyCode::KeyD) {
+                movement += rgt;
+            }
+            if keys.pressed(KeyCode::KeyQ) {
+                movement.y += 1.0;
+            }
+            if keys.pressed(KeyCode::KeyE) {
+                movement.y -= 1.0;
+            }
+            let max_speed = drone.drone_type.max_speed() * drone.speed_mult;
+            if movement != Vec3::ZERO {
+                let target_vel = movement.normalize_or_zero() * max_speed;
+                drone.velocity = drone.velocity.lerp(target_vel, 0.2);
+            } else {
+                drone.velocity *= 0.9;
+            }
+            transform.translation += drone.velocity * dt;
+            if drone.velocity.length_squared() > 0.1 {
+                transform.look_to(drone.velocity.normalize_or_zero(), Vec3::Y);
+            }
+        }
+
+        // ══ G key deploys a mine ══
+        if keys.just_pressed(KeyCode::KeyG) && drone.mine_count > 0 {
+            drone.mine_count -= 1;
+            let mine_pos = transform.translation + Vec3::NEG_Y * 0.5;
+            commands.spawn((
+                Deployable {
+                    equip_type: EquipmentType::Claymore,
+                    damage: 150.0,
+                    radius: 5.0,
+                    trigger_radius: 2.5,
+                    source: entity,
+                    armed: false,
+                    arm_timer: Some(Timer::from_seconds(1.0, TimerMode::Once)),
+                },
+                Transform::from_translation(mine_pos),
+                Sensor,
+            ));
+        }
+
+        // ══ Auto-return when empty or low battery ══
+        if drone.mine_count == 0 || drone.battery_ratio() < 0.15 {
+            let to_player = player_pos - transform.translation;
+            if to_player.length_squared() > 4.0 {
+                drone.velocity =
+                    to_player.normalize_or_zero() * drone.drone_type.max_speed();
+                transform.translation += drone.velocity * dt;
+            } else {
+                drone.deployed = false;
+                drone_state.mine_active = false;
+                commands.entity(entity).despawn();
+            }
+        }
     }
 }
 
@@ -405,6 +706,13 @@ pub struct DronePlugin;
 impl Plugin for DronePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<DroneState>();
-        app.add_systems(Update, drone_control_system);
+        app.add_systems(
+            Update,
+            (
+                drone_control_system,
+                grenade_drone_system,
+                mine_drone_system,
+            ),
+        );
     }
 }

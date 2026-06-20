@@ -1,8 +1,10 @@
 pub mod damage;
 pub mod death;
+pub mod destruction;
 pub mod impacts;
 pub mod reload;
 pub mod shooting;
+pub mod vfx;
 pub mod weapon_bob;
 pub mod weapon_model;
 pub mod weapon_state;
@@ -26,6 +28,7 @@ use bevy::prelude::*;
 
 use socom_core::resources::is_not_paused;
 
+use crate::combat::destruction::DestructionPlugin;
 use crate::combat::weapon_bob::AdsState;
 
 use crate::states::AppState;
@@ -38,6 +41,8 @@ impl Plugin for CombatPlugin {
         app.insert_resource(AdsState::default());
         app.add_message::<damage::DamageMessage>();
         app.add_message::<DeathMessage>();
+
+        app.add_plugins(DestructionPlugin);
 
         app.add_systems(OnEnter(AppState::InGame), spawn_weapon_model);
 

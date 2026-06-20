@@ -1,6 +1,7 @@
 use avian3d::prelude::*;
 use bevy::prelude::*;
 
+#[expect(dead_code, reason = "awaiting collision layer setup")]
 #[derive(PhysicsLayer, Default, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum GameLayer {
     #[default]

@@ -139,8 +139,8 @@ pub fn quick_load_system(
     keys: Res<ButtonInput<KeyCode>>,
     mut progression: ResMut<PlayerProgression>,
     mut stats: ResMut<PlayerStats>,
-    mut inventory: ResMut<PlayerInventory>,
-    mut achievements: ResMut<crate::progression::achievements::AchievementTracker>,
+    _inventory: ResMut<PlayerInventory>,
+    _achievements: ResMut<crate::progression::achievements::AchievementTracker>,
 ) {
     if !keys.just_pressed(KeyCode::F9) {
         return;

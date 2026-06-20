@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use socom_core::components::{Player, Team};
 
 /// Orders that can be issued to the squad.
+#[expect(dead_code, reason = "awaiting full squad AI")]
 #[derive(Clone, Debug, PartialEq)]
 pub enum SquadOrder {
     MoveToTarget(Entity),
@@ -17,6 +18,7 @@ pub enum SquadOrder {
 #[derive(Message, Clone, Debug)]
 pub struct SquadOrderMessage {
     pub order: SquadOrder,
+    #[expect(dead_code, reason = "awaiting full squad AI")]
     pub source: Entity,
 }
 

@@ -24,4 +24,7 @@ assets/**/*.bak
 
 # Generated docs (cargo doc output)
 /target/doc/
+
+# Hermes agent project artifacts (plans, workspaces)
+/.hermes/
 nul

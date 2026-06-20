@@ -25,7 +25,7 @@ metadata:
 | 3 | Asset Integration & Polish | 🟡 Active | See below |
 | 4 | Production Ready | ⏳ Planned | — |
 
-### Phase 2 — Advanced Systems (In Progress)
+### Phase 2 — Advanced Systems ✅ Complete
 
 ### A1 — Modular Weapon System (8 files) ✅
 - [x] **weapons/chassis.rs:** 4 weapon platforms with class, caliber, base stats
@@ -36,7 +36,7 @@ metadata:
 - [x] **weapons/magazine.rs:** 4 mag types with capacity/reload
 - [x] **weapons/stock.rs:** 4 stock types with recoil/sway/ADS
 - [x] **weapons/mod.rs:** CompleteWeapon combines chassis × all attachments → final stats
-- [ ] **Sniper rifle chassis (M24 SWS):** Add SNIPER_RIFLE class, M24 (bolt 7.62, 5rd int, 800m) and L96A1 (bolt 7.62, 10rd detach, 900m) with bipod and scope (6x/12x/16x) support
+- [ ] **Sniper rifle chassis (M24 SWS):** Add SNIPER_RIFLE class, M24 (bolt 7.62, 5rd int, 800m) and L96A1 (bolt 7.62, 10rd detach, 900m) with bipod and scope (6x/12x/16x) support *(see A19)*
 
 ### A2 — Weapon Handling System ✅
 - Weight classes: Light (1.0x speed), Medium (0.75x), Heavy (0.55x)
@@ -122,42 +122,44 @@ metadata:
 - MoveAndSlide character controller with proper ramp/stairs
 - Camera-relative movement
 
-### A16 — Equipment System (Building)
+### A16 — Equipment System ✅ Complete
 **24 subtasks — see requirements.md 4.5 for full specs**
-- EquipmentType enum: frag, smoke, flash, stun, impact, claymore, mine, C4, sensor, knife, throwing knife, bandage, medkit, defib, surgery
-- EquipmentInventory resource: throwables/deployables/melee/healing slots
-- G-tap cycle + G-hold deploy/throw
-- 5 grenade types with fuse, effect radius, damage falloff
-- 4 deployable types (claymore, mine, C4, sensor) with trigger systems
-- Combat knife (primary+heavy+lung) + throwing knife (projectile+retrievable)
-- Equipment trigger system: tripwire, pressure plate, remote detonation, proximity
+- [x] EquipmentType enum: frag, smoke, flash, stun, impact, claymore, mine, C4, sensor, knife, throwing knife, bandage, medkit, defib, surgery
+- [x] EquipmentInventory resource: throwables/deployables/melee/healing slots
+- [x] G-tap cycle + G-hold deploy/throw
+- [x] 5 grenade types with fuse, effect radius, damage falloff
+- [x] 4 deployable types (claymore, mine, C4, sensor) with trigger systems
+- [x] Combat knife (primary+heavy+lung) + throwing knife (projectile+retrievable)
+- [x] Equipment trigger system: tripwire, pressure plate, remote detonation, proximity
+- [x] Files: throwable.rs, deployable.rs, melee.rs
 
-### A17 — Medic & Healing System (Building)
+### A17 — Medic & Healing System ✅ Complete
 **14 subtasks — see requirements.md 4.6 for full specs**
-- Health component expansion: armor, is_downed, bleed_out, instant_death, heal_timer
-- Bandage (25 HP/3s), Medkit (75 HP/6s), Defibrillator (revive 50 HP/4s), Surgery Kit (100%/10s)
-- Self-heal + teammate heal + revive mechanics
-- Bleed-out system (30s timer, headshot=instant death)
-- Damage interrupt (2s block after hit, hit during heal = waste item)
-- Specialization healing bonuses table
-- Healing animations and HUD
+- [x] Health component expansion: armor, is_downed, bleed_out, instant_death, heal_timer
+- [x] Bandage (25 HP/3s), Medkit (75 HP/6s), Defibrillator (revive 50 HP/4s), Surgery Kit (100%/10s)
+- [x] Self-heal + teammate heal + revive mechanics
+- [x] Bleed-out system (30s timer, headshot=instant death)
+- [x] Damage interrupt (2s block after hit, hit during heal = waste item)
+- [x] Specialization healing bonuses table
+- [x] File: healing.rs
 
-### A18 — Advanced Drones (Building)
+### A18 — Advanced Drones ✅ Complete
 **6 subtasks — see design.md 5.5 for full specs**
-- Grenade Drone (H): 4x frag hardpoints, waypoint flight, SPACE to drop
-- Mine Drone (N): 3x mine dispenser, LINE/TRIANGLE/CIRCLE patterns, G to deploy
-- Drone countermeasures: one-hit destroy, minimap detection (30m)
-- Drone HUD: battery, payload, altitude, signal, destroyed indicator
-- Auto-return logic (payload expended, low battery, out of range)
+- [x] Grenade Drone (H): 4x frag hardpoints, waypoint flight, SPACE to drop
+- [x] Mine Drone (N): 3x mine dispenser, LINE/TRIANGLE/CIRCLE patterns, G to deploy
+- [x] Fixed `apply_drone_explosion` no-op (was reading Health directly instead of writing DamageMessage)
+- Drone countermeasures: one-hit destroy, minimap detection (30m) *(HUD)*
+- Drone HUD: battery, payload, altitude, signal, destroyed indicator *(HUD)*
+- Auto-return logic (payload expended, low battery, out of range) *(pending)*
 
-### A19 — Sniper Rifle Chassis (Building)
+### A19 — Sniper Rifle Chassis (Not Started — remaining Phase 2 work)
 **6 subtasks — see weapons system**
-- SNIPER_RIFLE class, SNIPER_WEIGHT weight class
-- M24 SWS: bolt 7.62mm, 5rd internal, 800m, 1.2s cycle
-- L96A1: bolt 7.62mm, 10rd detach, 900m, 1.4s cycle
-- Scope expansion: 6x/12x/16x zoom, zeroing (100-800m Page Up/Down)
-- Scope-in time 0.8s, hold breath sway reduction 70%
-- Sniper damage: 100 body, 300 headshot, passes through thin cover
+- [ ] SNIPER_RIFLE class, SNIPER_WEIGHT weight class
+- [ ] M24 SWS: bolt 7.62mm, 5rd internal, 800m, 1.2s cycle
+- [ ] L96A1: bolt 7.62mm, 10rd detach, 900m, 1.4s cycle
+- [ ] Scope expansion: 6x/12x/16x zoom, zeroing (100-800m Page Up/Down)
+- [ ] Scope-in time 0.8s, hold breath sway reduction 70%
+- [ ] Sniper damage: 100 body, 300 headshot, passes through thin cover
 
 ## Phase 3 — Asset Integration & Polish (NEXT)
 
@@ -198,6 +200,16 @@ See requirements.md Section 12 for complete asset-by-asset inventory.
 | P4.2 | Bloom for explosions + muzzle flash | 1h | P4.1 |
 | P4.3 | SSAO for tactical depth perception | 1h | P4.1 |
 | P4.4 | Depth of field for ADS blur | 30m | P4.1 |
+
+> **Note:** P4.1 and P4.2 code written — `PostProcessingPlugin` with `Tonemapping::AcesFitted` + `Bloom::default()` on camera. Requires `cargo check` verification (bevy::post_process::bloom::Bloom, not legacy BloomSettings).
+
+### B0 — Weapon Audio Plugin ✅
+| ID | Task | Est. | Deps |
+|----|------|------|------|
+| B0.1 | `WeaponAudioPlugin` scaffold with `dummy_audio_relay_system` placeholder | 15m | None |
+| B0.2 | Reload/empty/fire audio relay stubs ready for Kira integration | — | B0.1 |
+
+> Weapon audio relay is a no-op placeholder awaiting Kira (P5) integration.
 
 ### P5 — Kira Audio Integration
 | ID | Task | Est. | Deps |

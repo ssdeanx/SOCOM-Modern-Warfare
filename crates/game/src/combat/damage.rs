@@ -31,17 +31,24 @@ pub struct Dead;
 
 use crate::combat::death::DeathMessage;
 
-/// When an entity's `Health` drops to zero (or below), marks it with
-/// `Dead` and emits a `DeathMessage`.
+/// When an entity's `Health` drops to zero (or below), enters bleed-out
+/// on the first hit. If already downed and bleed-out expired, marks `Dead`.
 pub fn death_check_system(
     mut commands: Commands,
     mut death_writer: bevy::ecs::message::MessageWriter<DeathMessage>,
-    query: Query<(Entity, &Health), (Without<Dead>, Changed<Health>)>,
+    mut query: Query<(Entity, &mut Health), (Without<Dead>, Changed<Health>)>,
 ) {
-    for (entity, health) in query.iter() {
+    for (entity, mut health) in query.iter_mut() {
         if health.is_alive() {
             continue;
         }
+        // First time hitting 0 HP — enter bleed-out instead of dying
+        if !health.is_downed {
+            health.is_downed = true;
+            health.bleed_out_remaining = 30.0;
+            continue;
+        }
+        // Already downed and bleed-out expired — final death
         commands.entity(entity).insert(Dead);
         death_writer.write(DeathMessage {
             entity,

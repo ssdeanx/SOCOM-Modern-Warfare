@@ -12,6 +12,7 @@ pub enum WeaponWeight {
     Light,
     Medium,
     Heavy,
+    Sniper,
 }
 
 impl WeaponWeight {
@@ -20,6 +21,7 @@ impl WeaponWeight {
             "M1911" => WeaponWeight::Light,
             "MP5SD" => WeaponWeight::Medium,
             "M4A1" | "AK-47" => WeaponWeight::Heavy,
+            "M24" | "L96A1" => WeaponWeight::Sniper,
             _ => WeaponWeight::Medium,
         }
     }
@@ -30,6 +32,7 @@ impl WeaponWeight {
             WeaponWeight::Light => 1.0,
             WeaponWeight::Medium => 0.75,
             WeaponWeight::Heavy => 0.55,
+            WeaponWeight::Sniper => 0.45,
         }
     }
     /// Time in seconds to fully aim down sights.
@@ -38,14 +41,17 @@ impl WeaponWeight {
             WeaponWeight::Light => 0.12,
             WeaponWeight::Medium => 0.25,
             WeaponWeight::Heavy => 0.40,
+            WeaponWeight::Sniper => 0.50,
         }
     }
     /// Base weapon sway amplitude.
+    #[expect(dead_code, reason = "awaiting weapon sway integration")]
     pub fn sway_amplitude(&self) -> f32 {
         match self {
             WeaponWeight::Light => 0.001,
             WeaponWeight::Medium => 0.003,
             WeaponWeight::Heavy => 0.008,
+            WeaponWeight::Sniper => 0.012,
         }
     }
 }
@@ -55,7 +61,9 @@ impl WeaponWeight {
 pub struct WeaponHandling {
     pub current_ads_time: f32,
     pub current_weight_mult: f32,
+    #[expect(dead_code, reason = "awaiting deploy animation")]
     pub deploy_timer: Timer,
+    #[expect(dead_code, reason = "awaiting deploy animation")]
     pub is_deploying: bool,
 }
 

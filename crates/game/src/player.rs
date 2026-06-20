@@ -1,8 +1,11 @@
 use avian3d::prelude::*;
+use bevy::core_pipeline::tonemapping::Tonemapping;
+use bevy::post_process::bloom::Bloom;
 use bevy::prelude::*;
 
 use socom_core::components::{Health, MovementState, Player, Weapon, WeaponSlot};
 use socom_rendering::camera::ThirdPersonCamera;
+use socom_rendering::post_processing::PostProcessingProfile;
 
 use crate::combat::weapon_bob::WeaponBobState;
 use crate::combat::{OffhandWeaponState, WeaponState};
@@ -91,11 +94,14 @@ impl Plugin for PlayerPlugin {
 fn spawn_player(mut commands: Commands) {
     let player_entity = commands.spawn((PlayerBundle::new(), IngameEntity)).id();
 
-    // Spawn camera tracking the player.
+    // Spawn camera tracking the player with AAA post-processing stack.
     commands.spawn((
         Camera3d::default(),
         ThirdPersonCamera::new(player_entity),
         IsDefaultUiCamera,
         IngameEntity,
+        Tonemapping::AcesFitted,
+        Bloom::default(),
+        PostProcessingProfile::default(),
     ));
 }

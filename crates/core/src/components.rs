@@ -24,25 +24,55 @@ pub enum MovementState {
     InCover,
 }
 
-/// Health pool
+/// Health pool with armor, bleed-out, and revive support.
 #[cfg_attr(feature = "bevy", derive(Component))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Health {
     pub current: f32,
     pub max: f32,
+    /// Armor points that absorb a portion of incoming damage.
+    pub armor: f32,
+    /// Maximum armor capacity.
+    pub max_armor: f32,
+    /// Whether this entity is in the bleed-out / downed state.
+    pub is_downed: bool,
+    /// Seconds remaining in bleed-out before final death.
+    pub bleed_out_remaining: f32,
+    /// Progress towards being revived (0.0 = not revived).
+    pub revive_progress: f32,
 }
 
 impl Health {
     pub const fn new(max: f32) -> Self {
-        Self { current: max, max }
+        Self {
+            current: max,
+            max,
+            armor: 0.0,
+            max_armor: 100.0,
+            is_downed: false,
+            bleed_out_remaining: 30.0,
+            revive_progress: 0.0,
+        }
     }
 
     pub fn is_alive(&self) -> bool {
         self.current > 0.0
     }
 
+    pub fn is_down(&self) -> bool {
+        self.is_downed
+    }
+
     pub fn ratio(&self) -> f32 {
         self.current / self.max
+    }
+
+    pub fn armor_ratio(&self) -> f32 {
+        if self.max_armor > 0.0 {
+            self.armor / self.max_armor
+        } else {
+            0.0
+        }
     }
 }
 

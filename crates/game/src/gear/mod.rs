@@ -1,6 +1,12 @@
 pub mod attachments;
+pub mod deployable;
+pub mod equipment_inventory;
+pub mod equipment_types;
+pub mod healing;
 pub mod inventory;
 pub mod items;
+pub mod melee;
+pub mod throwable;
 pub mod workshop;
 
 use bevy::prelude::*;
@@ -15,11 +21,23 @@ impl Plugin for GearPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<inventory::PlayerInventory>();
         app.init_resource::<workshop::WeaponWorkshop>();
+        app.init_resource::<equipment_inventory::EquipmentInventory>();
         app.add_systems(
             Update,
             (
                 inventory::track_damage_for_loot,
                 workshop::weapon_modification_system,
+                equipment_inventory::select_equipment_system,
+                throwable::throw_equipment_system,
+                throwable::fuse_timer_system,
+                throwable::c4_detonation_system,
+                deployable::deploy_equipment_system,
+                deployable::deployable_arm_system,
+                deployable::claymore_detonation_system,
+                melee::melee_attack_system,
+                healing::self_heal_system,
+                healing::bleed_out_system,
+                healing::revive_system,
                 apply_workshop_to_weapon_system,
             ),
         );

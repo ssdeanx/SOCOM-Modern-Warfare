@@ -29,8 +29,6 @@ impl Plugin for InGamePlugin {
             SquadPlugin,
             AiPlugin,
             HudPlugin,
-            crate::progression::ProgressionPlugin,
-            crate::gear::GearPlugin,
         ));
     }
 }

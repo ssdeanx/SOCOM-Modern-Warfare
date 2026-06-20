@@ -145,4 +145,52 @@ impl WeaponChassis {
             pellets_per_shot: 1,
         }
     }
+
+    /// M24 SWS — bolt-action sniper rifle, 7.62mm NATO, 5rd internal magazine.
+    pub fn m24() -> Self {
+        WeaponChassis {
+            name: "M24".into(),
+            class: WeaponClass::SniperRifle,
+            caliber: Caliber::SevenSixTwoNato,
+            base_damage: 80.0,
+            base_fire_rate: 0.83, // 1.2s cycle time (bolt-action)
+            base_magazine_size: 5,
+            base_reserve_ammo: 40,
+            base_reload_time: 4.0, // Internal mag — loaded round-by-round, 4s total
+            base_spread_hip: 6.0,
+            base_spread_ads: 0.08, // Extremely tight when scoped
+            base_recoil_vertical: 3.0,
+            base_recoil_horizontal: 0.5,
+            base_weight: 5.5,
+            base_ads_speed: 0.50,
+            base_sway: 0.012,
+            max_range: 800.0,
+            is_automatic: false,
+            pellets_per_shot: 1,
+        }
+    }
+
+    /// L96A1 — bolt-action sniper rifle, 7.62mm NATO, 10rd detachable magazine.
+    pub fn l96a1() -> Self {
+        WeaponChassis {
+            name: "L96A1".into(),
+            class: WeaponClass::SniperRifle,
+            caliber: Caliber::SevenSixTwoNato,
+            base_damage: 100.0,
+            base_fire_rate: 0.71, // 1.4s cycle time (heavier bolt)
+            base_magazine_size: 10,
+            base_reserve_ammo: 50,
+            base_reload_time: 2.5, // Detachable box mag
+            base_spread_hip: 6.5,
+            base_spread_ads: 0.06, // Exceptional precision
+            base_recoil_vertical: 3.5,
+            base_recoil_horizontal: 0.5,
+            base_weight: 6.5,
+            base_ads_speed: 0.50,
+            base_sway: 0.014,
+            max_range: 900.0,
+            is_automatic: false,
+            pellets_per_shot: 1,
+        }
+    }
 }

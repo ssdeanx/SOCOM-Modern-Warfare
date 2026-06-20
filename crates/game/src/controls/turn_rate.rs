@@ -4,18 +4,13 @@
 
 use bevy::prelude::*;
 
-use socom_core::components::{MovementState, Player};
+use socom_core::components::MovementState;
 
 use crate::stamina::Stamina;
-use crate::weapon_handling::WeaponWeight;
 
 /// Returns the turn rate multiplier based on stance and weight.
 /// Applied to mouse sensitivity.
-pub fn turn_rate_mult(
-    stance: &MovementState,
-    weight_mult: f32,
-    stamina: &Stamina,
-) -> f32 {
+pub fn turn_rate_mult(stance: &MovementState, weight_mult: f32, stamina: &Stamina) -> f32 {
     let stance_mult = match stance {
         MovementState::Prone => 0.3,
         MovementState::Crouching => 0.6,

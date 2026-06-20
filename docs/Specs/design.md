@@ -1,6 +1,6 @@
 ---
 title: "SOCOM Tactical Shooter — Design Document"
-version: "2.0.0"
+version: "2.1.0"
 date: "2026-06-19"
 author: "Sam / Quicksilver"
 status: "Active — Phase 2 Systems Complete"
@@ -496,9 +496,44 @@ Client                               Server
 |---------|-------|------|
 | Physics timestep | 120Hz fixed | main.rs via Time<Fixed> |
 | Dev tools | FPS overlay + World Inspector (F1) | main.rs |
-| VFX | bevy_hanabi 0.18.0 | main.rs (wired, inactive) |
+| VFX | bevy_hanabi 0.18.0 | VfxPlugin in combat/vfx.rs |
 | Loading screen | iyes_progress 0.17.0-rc.1 | main.rs (wired, inactive) |
 | Asset formats | bevy_common_assets 0.17.0-rc.1 | main.rs (in deps) |
+
+## 12. VFX System Architecture
+
+### 12.1 Particle Effects (bevy_hanabi 0.18.0)
+
+Five effects are registered in `combat/vfx.rs` via the `VfxPlugin`:
+
+| Effect | Particles | Lifetime | Color | Size | Trigger |
+|--------|-----------|----------|-------|------|---------|
+| MuzzleFlash | 64 | 0.1s | Yellow→Orange→Transparent | 0.3→0.6→0.05 | WeaponFiredMessage |
+| BulletImpact | 32 | 0.25s | White-Orange→Transparent | 0.08→0.12→0.02 | HitConfirmedMessage(hit=true) |
+| HitMarker | 8 | 0.12s | Full Red→Transparent | 0.15→0.02 | DamageMessage |
+| DeathExplosion | 6 | 1.0s | Orange→Red→Transparent | 0.5→1.0→0.1 | DeathMessage + gravity(-5) |
+| Tracer | 16 | 0.3s | Yellow-Green→Orange→Transparent | 0.1→0.02 | WeaponFiredMessage(miss) |
+
+### 12.2 System Flow
+
+```
+Message → VFX System → ParticleEffect entity → Cleanup (VfxEffect timer)
+```
+
+All effects use:
+- `SpawnerSettings::once()` for single-burst emission
+- `ColorOverLifetimeModifier` with `Gradient<Vec4>` for color interpolation
+- `SizeOverLifetimeModifier` with `Gradient<Vec3>` for size interpolation
+- `VfxEffect` component with `Timer` for entity cleanup after effect completes
+
+### 12.3 Post-Processing Stack
+
+Applied to the camera entity at spawn (`player.rs`):
+- `Tonemapping::AcesFitted` — ACES filmic tone mapping (AAA standard)
+- `Bloom::default()` — bloom for bright effects (muzzle flash, explosions)
+- `PostProcessingProfile` — intensity multiplier (future expansion)
+
+Post-processing is confirmed by `apply_post_processing_system` in `rendering/src/post_processing.rs`.
 
 ## 13. Destruction & Damage System Architecture
 

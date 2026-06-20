@@ -66,6 +66,9 @@ fn main() {
     // ── GPU Particles ──
     app.add_plugins(bevy_hanabi::HanabiPlugin);
 
+    // ── Post Processing ──
+    app.add_plugins(socom_rendering::post_processing::PostProcessingPlugin);
+
     // ── Custom Asset Formats (for loading RON/JSON level files) ──
     // Disabled until we have actual asset types to load
     // app.add_plugins(bevy_common_assets::ron::RonAssetPlugin::<ron::Value>::new(&["ron"]));
@@ -90,6 +93,9 @@ fn main() {
     app.add_message::<messages::SuppressionMessage>();
     app.add_message::<messages::ItemPickupMessage>();
     app.add_message::<messages::ItemEquipMessage>();
+    app.add_message::<messages::EquipmentUsedMessage>();
+    app.add_message::<messages::GrenadeDetonatedMessage>();
+    app.add_message::<messages::MeleeHitMessage>();
 
     // ── Internal Plugins ──
     app.add_plugins((
@@ -114,6 +120,7 @@ fn main() {
             settings_applier::apply_settings_system,
             stamina::stamina_system,
             weapon_handling::weapon_handling_system,
+            socom_rendering::post_processing::apply_post_processing_system,
         ),
     );
 

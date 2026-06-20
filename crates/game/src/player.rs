@@ -3,7 +3,7 @@ use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::post_process::bloom::Bloom;
 use bevy::prelude::*;
 
-use socom_core::components::{Health, MovementState, Player, Weapon, WeaponSlot};
+use socom_core::components::{Health, MovementState, Player, WeaponSlot};
 use socom_rendering::camera::ThirdPersonCamera;
 use socom_rendering::post_processing::PostProcessingProfile;
 
@@ -14,6 +14,7 @@ use crate::stamina::Stamina;
 use crate::states::ingame::IngameEntity;
 use crate::states::AppState;
 use crate::weapon_handling::WeaponHandling;
+use crate::weapons::{CompleteWeapon, EquippedWeapon};
 
 /// Bundle to spawn a player entity with all required components.
 ///
@@ -27,6 +28,7 @@ pub struct PlayerBundle {
     pub weapon_slot: WeaponSlot,
     pub weapon_state: WeaponState,
     pub offhand_state: OffhandWeaponState,
+    pub equipped_weapon: EquippedWeapon,
     pub weapon_bob: WeaponBobState,
     pub stamina: Stamina,
     pub weapon_handling: WeaponHandling,
@@ -41,24 +43,18 @@ pub struct PlayerBundle {
 impl PlayerBundle {
     pub fn new() -> Self {
         let weapon_slot = WeaponSlot::default();
-        let weapon = weapon_slot
-            .active_weapon()
-            .cloned()
-            .expect("Player WeaponSlot must have an active weapon at spawn");
+        // Build CompleteWeapon from the WeaponSlot's defaults
+        let equipped = EquippedWeapon::default();
         Self {
             player: Player,
             health: Health::new(100.0),
             movement_state: MovementState::Standing,
-            weapon_state: WeaponState::from_weapon(&weapon, weapon_slot.active_slot),
+            weapon_state: WeaponState::from_complete_weapon(&equipped.weapon, 0),
             offhand_state: {
                 // Initialise the offhand slot (sidearm) with full ammo.
-                let sidearm = weapon_slot
-                    .sidearm
-                    .as_ref()
-                    .cloned()
-                    .unwrap_or_else(Weapon::m1911);
-                OffhandWeaponState(WeaponState::from_weapon(&sidearm, 1))
+                OffhandWeaponState(WeaponState::from_complete_weapon(&CompleteWeapon::default_m1911(), 1))
             },
+            equipped_weapon: equipped,
             weapon_bob: WeaponBobState::default(),
             stamina: Stamina::default(),
             weapon_handling: WeaponHandling::default(),

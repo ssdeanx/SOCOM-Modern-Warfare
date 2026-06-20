@@ -7,6 +7,8 @@ use socom_rendering::camera::ThirdPersonCamera;
 
 use crate::combat::weapon_model::WeaponModelRoot;
 use crate::stamina::{stamina_sway_mult, Stamina};
+use crate::weapon_handling::WeaponHandling;
+
 /// Shared ADS state updated each frame by the bob system.
 /// Read by shooting and movement systems to apply modifiers.
 #[derive(Resource, Default)]
@@ -39,7 +41,6 @@ const BOB_AMP_WALK: f32 = 0.015;
 const BOB_AMP_SPRINT: f32 = 0.03;
 const BOB_AMP_CROUCH: f32 = 0.008;
 const BOB_AMP_PRONE: f32 = 0.0;
-const ADS_LERP_SPEED: f32 = 5.0;
 const HIP_POS: Vec3 = Vec3::new(0.35, -0.25, -0.6);
 const ADS_POS: Vec3 = Vec3::new(0.0, -0.1, -0.4);
 
@@ -53,9 +54,10 @@ fn bob_params(stance: &MovementState) -> (f32, f32) {
 }
 
 /// Animates weapon bob and updates the shared ADS state resource.
+/// Uses `WeaponHandling` stats for ADS speed and sway amplitude.
 pub fn weapon_bob_system(
     time: Res<Time>,
-    player_query: Query<(&ActionState<PlayerAction>, &MovementState, &Stamina), With<Player>>,
+    player_query: Query<(&ActionState<PlayerAction>, &MovementState, &Stamina, &WeaponHandling), With<Player>>,
     mut bob_query: Query<(&mut WeaponBobState, &mut Transform), With<WeaponModelRoot>>,
     mut ads_state: ResMut<AdsState>,
 ) {
@@ -63,7 +65,7 @@ pub fn weapon_bob_system(
     if dt <= 0.0 {
         return;
     }
-    let Ok((action_state, stance, stamina)) = player_query.single() else {
+    let Ok((action_state, stance, stamina, handling)) = player_query.single() else {
         return;
     };
 
@@ -73,12 +75,20 @@ pub fn weapon_bob_system(
 
     // Apply stamina sway multiplier
     let sway_mult = stamina_sway_mult(stamina);
-    let final_amp = amp * sway_mult;
+    // Combine movement bob amplitude with weapon-specific sway
+    let weapon_sway = handling.current_sway_amplitude;
+    let final_amp = (amp + weapon_sway) * sway_mult;
 
-    // Update ADS factor
+    // Update ADS factor using weapon-specific ADS speed
     let target_ads = if aiming { 1.0 } else { 0.0 };
     let ads = ads_state.factor;
-    let new_ads = ads + (target_ads - ads) * (ADS_LERP_SPEED * dt).min(1.0);
+    // ADS lerp speed derived from the weapon's ADS time (e.g. 0.22s → ~4.5/s)
+    let ads_lerp_speed = if handling.current_ads_time > 0.0 {
+        1.0 / handling.current_ads_time
+    } else {
+        5.0
+    };
+    let new_ads = ads + (target_ads - ads) * (ads_lerp_speed * dt).min(1.0);
     ads_state.factor = new_ads;
     ads_state.spread_mult =
         (1.0 - new_ads * 0.5) * (if stamina.is_exhausted() { 1.5 } else { 1.0 });

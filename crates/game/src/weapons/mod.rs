@@ -9,6 +9,8 @@ pub mod underbarrel;
 use bevy::prelude::Component;
 use serde::{Deserialize, Serialize};
 
+use socom_core::components::Weapon;
+
 use self::barrel::BarrelType;
 use self::caliber::Caliber;
 use self::chassis::WeaponChassis;
@@ -185,4 +187,29 @@ impl CompleteWeapon {
 #[derive(Component, Debug, Clone)]
 pub struct EquippedWeapon {
     pub weapon: CompleteWeapon,
+}
+
+impl EquippedWeapon {
+    /// Convert to the legacy `Weapon` interface for systems that still consume it.
+    pub fn to_weapon(&self) -> Weapon {
+        Weapon {
+            name: self.weapon.chassis.name.clone(),
+            fire_rate: self.weapon.final_fire_rate,
+            damage: self.weapon.final_damage,
+            magazine_size: self.weapon.final_magazine_size,
+            reserve_ammo: self.weapon.final_reserve_ammo,
+            reload_time: self.weapon.final_reload_time,
+            is_automatic: self.weapon.final_is_automatic,
+            spread_degrees: self.weapon.final_spread_hip,
+            max_range: self.weapon.final_max_range,
+        }
+    }
+}
+
+impl Default for EquippedWeapon {
+    fn default() -> Self {
+        Self {
+            weapon: CompleteWeapon::default_m4a1(),
+        }
+    }
 }

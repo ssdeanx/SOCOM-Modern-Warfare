@@ -4,7 +4,7 @@ use bevy::ecs::message::MessageWriter;
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::*;
 
-use socom_core::components::{Health, Player, Weapon, WeaponSlot};
+use socom_core::components::{Health, Player};
 use socom_input::actions::PlayerAction;
 use socom_rendering::camera::ThirdPersonCamera;
 
@@ -12,6 +12,7 @@ use crate::combat::damage::{DamageMessage, Dead};
 use crate::combat::impacts::ImpactMarker;
 use crate::combat::weapon_bob::AdsState;
 use crate::combat::weapon_state::WeaponState;
+use crate::weapons::EquippedWeapon;
 
 const MAX_SHOOT_DISTANCE: f32 = 300.0;
 const IMPACT_LIFETIME: f32 = 2.0;
@@ -19,10 +20,12 @@ const RAYCAST_NEAR_CLIP: f32 = 0.5;
 
 /// Computes the ray origin and direction for a shot, applying weapon spread.
 /// `ads_mult` is the ADS spread multiplier (1.0 = hip, 0.5 = fully aimed).
-fn bullet_ray(camera_transform: &Transform, weapon: &Weapon, ads_mult: f32) -> (Vec3, Vec3) {
+/// Uses `spread_hip` for hip-fire and `spread_ads` when aimed.
+fn bullet_ray(camera_transform: &Transform, spread_hip: f32, spread_ads: f32, ads_mult: f32) -> (Vec3, Vec3) {
     let origin = camera_transform.translation;
     let forward = *camera_transform.forward();
-    let spread_rad = weapon.spread_degrees.to_radians() * ads_mult;
+    let spread_deg = spread_hip.lerp(spread_ads, 1.0 - ads_mult);
+    let spread_rad = spread_deg.to_radians() * ads_mult;
     if spread_rad <= 0.0 {
         return (origin, forward);
     }
@@ -70,7 +73,7 @@ pub fn shooting_system(
         (
             Entity,
             &ActionState<PlayerAction>,
-            &WeaponSlot,
+            &EquippedWeapon,
             Option<&mut WeaponState>,
             &Health,
         ),
@@ -104,7 +107,7 @@ pub fn shooting_system(
         ..default()
     });
 
-    for (player_entity, action_state, weapon_slot, weapon_state_opt, health) in
+    for (player_entity, action_state, equipped, weapon_state_opt, health) in
         player_query.iter_mut()
     {
         // Don't allow firing when dead
@@ -116,11 +119,9 @@ pub fn shooting_system(
             continue;
         }
 
-        let Some(weapon) = weapon_slot.active_weapon() else {
-            continue;
-        };
+        let weapon = &equipped.weapon;
 
-        let should_fire = if weapon.is_automatic {
+        let should_fire = if weapon.final_is_automatic {
             fire_pressed
         } else {
             action_state.just_pressed(&PlayerAction::Fire)
@@ -129,7 +130,7 @@ pub fn shooting_system(
             continue;
         }
 
-        let fire_interval = 1.0 / weapon.fire_rate;
+        let fire_interval = 1.0 / weapon.final_fire_rate;
         let can_fire = weapon_state_opt.as_ref().is_some_and(|ws| {
             !ws.is_reloading
                 && ws.magazine > 0
@@ -140,11 +141,16 @@ pub fn shooting_system(
         }
 
         // Fire!
-        let (ray_origin, ray_dir) = bullet_ray(camera_transform, weapon, ads_state.spread_mult);
+        let (ray_origin, ray_dir) = bullet_ray(
+            camera_transform,
+            weapon.final_spread_hip,
+            weapon.final_spread_ads,
+            ads_state.spread_mult,
+        );
         let ray_dir3 = Dir3::new(ray_dir).unwrap_or(Dir3::Z);
 
         let filter = SpatialQueryFilter::default().with_excluded_entities([player_entity]);
-        let max_range = weapon.max_range.min(MAX_SHOOT_DISTANCE);
+        let max_range = weapon.final_max_range.min(MAX_SHOOT_DISTANCE);
         // Exclude already-dead entities from being shot further
         let hit = spatial_query.cast_ray(ray_origin, ray_dir3, max_range, true, &filter);
 
@@ -161,7 +167,7 @@ pub fn shooting_system(
                 .unwrap_or(0.0);
             damage_writer.write(DamageMessage {
                 target: hit_entity,
-                amount: weapon.damage + damage_bonus,
+                amount: weapon.final_damage + damage_bonus,
                 source: player_entity,
                 hit_point,
                 hit_normal: hit_data.normal,
@@ -197,7 +203,7 @@ pub fn shooting_system(
             ws.magazine = ws.magazine.saturating_sub(1);
             if ws.magazine == 0 && ws.reserve > 0 {
                 ws.is_reloading = true;
-                ws.reload_timer = weapon.reload_time;
+                ws.reload_timer = weapon.final_reload_time;
                 let click: Handle<AudioSource> = asset_server.load("audio/ui_click.ogg");
                 commands.spawn((
                     AudioPlayer(click),
@@ -206,10 +212,10 @@ pub fn shooting_system(
             }
         }
 
-        // Weapon fire sound
-        let sound_path = match weapon_slot.active_slot {
-            1 => "audio/weapon_1911.ogg",
-            _ if weapon.name == "MP5SD" => "audio/weapon_mp5.ogg",
+        // Weapon fire sound — use chassis name to pick audio
+        let sound_path = match equipped.weapon.chassis.name.as_str() {
+            "M1911" => "audio/weapon_1911.ogg",
+            "MP5SD" => "audio/weapon_mp5.ogg",
             _ => "audio/weapon_m4.ogg",
         };
         let handle: Handle<AudioSource> = asset_server.load(sound_path);

@@ -6,6 +6,7 @@ use socom_core::components::{Player, WeaponSlot};
 use socom_input::actions::PlayerAction;
 
 use crate::combat::weapon_state::{OffhandWeaponState, WeaponState};
+use crate::weapons::EquippedWeapon;
 
 /// Handles 1/2 key presses to swap between primary (slot 0) and sidearm (slot 1).
 /// Preserves per-slot ammo state by exchanging WeaponState <-> OffhandWeaponState.
@@ -48,25 +49,23 @@ pub fn reload_input_system(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut player_query: Query<
-        (&ActionState<PlayerAction>, &WeaponSlot, &mut WeaponState),
+        (&ActionState<PlayerAction>, &EquippedWeapon, &mut WeaponState),
         With<Player>,
     >,
 ) {
-    for (action_state, weapon_slot, mut weapon_state) in player_query.iter_mut() {
+    for (action_state, equipped, mut weapon_state) in player_query.iter_mut() {
         if !action_state.just_pressed(&PlayerAction::Reload) {
             continue;
         }
         if weapon_state.is_reloading {
             continue;
         }
-        let Some(weapon) = weapon_slot.active_weapon() else {
-            continue;
-        };
-        if weapon_state.magazine >= weapon.magazine_size || weapon_state.reserve == 0 {
+        let weapon = &equipped.weapon;
+        if weapon_state.magazine >= weapon.final_magazine_size || weapon_state.reserve == 0 {
             continue;
         }
         weapon_state.is_reloading = true;
-        weapon_state.reload_timer = weapon.reload_time;
+        weapon_state.reload_timer = weapon.final_reload_time;
 
         let handle: Handle<AudioSource> = asset_server.load("audio/ui_click.ogg");
         commands.spawn((
@@ -79,24 +78,22 @@ pub fn reload_input_system(
 /// Each frame, ticks down the reload timer. When complete, refills magazine.
 pub fn reload_tick_system(
     time: Res<Time>,
-    mut player_query: Query<(&mut WeaponState, &WeaponSlot), With<Player>>,
+    mut player_query: Query<(&mut WeaponState, &EquippedWeapon), With<Player>>,
 ) {
     let dt = time.delta_secs();
     if dt <= 0.0 {
         return;
     }
 
-    for (mut weapon_state, weapon_slot) in player_query.iter_mut() {
+    for (mut weapon_state, equipped) in player_query.iter_mut() {
         if !weapon_state.is_reloading {
             continue;
         }
         weapon_state.reload_timer -= dt;
         if weapon_state.reload_timer <= 0.0 {
             weapon_state.is_reloading = false;
-            let Some(weapon) = weapon_slot.active_weapon() else {
-                continue;
-            };
-            let needed = weapon.magazine_size - weapon_state.magazine;
+            let weapon = &equipped.weapon;
+            let needed = weapon.final_magazine_size - weapon_state.magazine;
             let available = weapon_state.reserve.min(needed);
             weapon_state.magazine += available;
             weapon_state.reserve -= available;

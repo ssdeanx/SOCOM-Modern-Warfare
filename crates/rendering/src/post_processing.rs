@@ -32,10 +32,10 @@ impl Plugin for PostProcessingPlugin {
 /// Applies the post-processing profile to cameras each frame.
 /// Confirms ACES filmic tone mapping and Bloom are applied.
 pub fn apply_post_processing_system(
-    cam_query: Query<(&PostProcessingProfile, &mut Tonemapping, Option<&Bloom>), With<Camera3d>>,
+    mut cam_query: Query<(&PostProcessingProfile, &mut Tonemapping, Option<&Bloom>), With<Camera3d>>,
 ) {
-    if let Ok((_profile, mut tonemapping, _bloom)) = cam_query.single() {
-        // ACES filmic tone mapping — matches modern AAA look
+    // ACES filmic tone mapping — matches modern AAA look
+    if let Some((_profile, mut tonemapping, _bloom)) = cam_query.iter_mut().next() {
         *tonemapping = Tonemapping::AcesFitted;
     }
 }

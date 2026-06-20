@@ -4,63 +4,19 @@
 
 use bevy::prelude::*;
 
-use socom_core::components::WeaponSlot;
+use socom_core::components::Player;
 
-/// Weight classes for weapons.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum WeaponWeight {
-    Light,
-    Medium,
-    Heavy,
-    Sniper,
-}
+use crate::weapons::EquippedWeapon;
 
-impl WeaponWeight {
-    pub fn from_weapon_name(name: &str) -> Self {
-        match name {
-            "M1911" => WeaponWeight::Light,
-            "MP5SD" => WeaponWeight::Medium,
-            "M4A1" | "AK-47" => WeaponWeight::Heavy,
-            "M24" | "L96A1" => WeaponWeight::Sniper,
-            _ => WeaponWeight::Medium,
-        }
-    }
-    /// Movement speed multiplier while weapon is equipped.
-    /// Light (pistol): full speed. Heavy (rifle): significant penalty.
-    pub fn speed_mult(&self) -> f32 {
-        match self {
-            WeaponWeight::Light => 1.0,
-            WeaponWeight::Medium => 0.75,
-            WeaponWeight::Heavy => 0.55,
-            WeaponWeight::Sniper => 0.45,
-        }
-    }
-    /// Time in seconds to fully aim down sights.
-    pub fn ads_time(&self) -> f32 {
-        match self {
-            WeaponWeight::Light => 0.12,
-            WeaponWeight::Medium => 0.25,
-            WeaponWeight::Heavy => 0.40,
-            WeaponWeight::Sniper => 0.50,
-        }
-    }
-    /// Base weapon sway amplitude.
-    #[expect(dead_code, reason = "awaiting weapon sway integration")]
-    pub fn sway_amplitude(&self) -> f32 {
-        match self {
-            WeaponWeight::Light => 0.001,
-            WeaponWeight::Medium => 0.003,
-            WeaponWeight::Heavy => 0.008,
-            WeaponWeight::Sniper => 0.012,
-        }
-    }
-}
-
-/// Tracks current weapon handling state.
+/// Tracks current weapon handling state, derived from the equipped weapon's stats.
 #[derive(Component, Debug)]
 pub struct WeaponHandling {
-    pub current_ads_time: f32,
+    /// Movement speed multiplier derived from weapon weight.
     pub current_weight_mult: f32,
+    /// Time in seconds to fully aim down sights.
+    pub current_ads_time: f32,
+    /// Base weapon sway amplitude.
+    pub current_sway_amplitude: f32,
     #[expect(dead_code, reason = "awaiting deploy animation")]
     pub deploy_timer: Timer,
     #[expect(dead_code, reason = "awaiting deploy animation")]
@@ -70,27 +26,50 @@ pub struct WeaponHandling {
 impl Default for WeaponHandling {
     fn default() -> Self {
         Self {
+            current_weight_mult: 1.0,
             current_ads_time: 0.22,
-            current_weight_mult: 0.85,
+            current_sway_amplitude: 0.003,
             deploy_timer: Timer::from_seconds(0.3, TimerMode::Once),
             is_deploying: false,
         }
     }
 }
 
-/// Updates weapon handling stats based on the active weapon.
+/// Maps weapon weight (kg) to a movement speed multiplier (0.3–1.0).
+/// Heavier weapons slow the player more.
+fn weight_to_speed_mult(weight_kg: f32) -> f32 {
+    let weight = weight_kg.clamp(0.5, 8.0);
+    // Linear map: 0.5kg → 1.0, 8.0kg → 0.35
+    1.0 - (weight - 0.5) / 7.5 * 0.65
+}
+
+/// Maps weapon weight (kg) to ADS time in seconds (0.1–0.6).
+fn weight_to_ads_time(weight_kg: f32) -> f32 {
+    let weight = weight_kg.clamp(0.5, 8.0);
+    // Linear map: 0.5kg → 0.1s, 8.0kg → 0.55s
+    0.1 + (weight - 0.5) / 7.5 * 0.45
+}
+
+/// Maps weapon weight (kg) to sway amplitude (0.001–0.015).
+fn weight_to_sway(weight_kg: f32) -> f32 {
+    let weight = weight_kg.clamp(0.5, 8.0);
+    // Heavier weapons sway more
+    0.001 + (weight - 0.5) / 7.5 * 0.014
+}
+
+/// Updates weapon handling stats based on the equipped weapon's complete stats.
+/// Uses `EquippedWeapon.final_weight` to compute speed/ADS/sway multipliers.
 pub fn weapon_handling_system(
     mut player_query: Query<
-        (&WeaponSlot, &mut WeaponHandling),
-        With<socom_core::components::Player>,
+        (&EquippedWeapon, &mut WeaponHandling),
+        With<Player>,
     >,
 ) {
-    let Ok((weapon_slot, mut handling)) = player_query.single_mut() else {
+    let Ok((equipped, mut handling)) = player_query.single_mut() else {
         return;
     };
-    if let Some(weapon) = weapon_slot.active_weapon() {
-        let weight = WeaponWeight::from_weapon_name(&weapon.name);
-        handling.current_weight_mult = weight.speed_mult();
-        handling.current_ads_time = weight.ads_time();
-    }
+    let weight = equipped.weapon.final_weight;
+    handling.current_weight_mult = weight_to_speed_mult(weight);
+    handling.current_ads_time = weight_to_ads_time(weight);
+    handling.current_sway_amplitude = weight_to_sway(weight);
 }

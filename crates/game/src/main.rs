@@ -60,7 +60,8 @@ fn main() {
 
     // ── Dev Tools ──
     app.add_plugins(bevy::dev_tools::fps_overlay::FpsOverlayPlugin::default());
-    // Runtime entity inspector (press F1 to open)
+    // Runtime entity inspector (press F1 to open) — MUST be after EguiPlugin
+    app.add_plugins(bevy_egui::EguiPlugin::default());
     app.add_plugins(bevy_inspector_egui::quick::WorldInspectorPlugin::new());
 
     // ── GPU Particles ──

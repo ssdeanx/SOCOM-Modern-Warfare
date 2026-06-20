@@ -36,6 +36,8 @@ impl DroneType {
         match self {
             DroneType::Recon => "Recon UAV",
             DroneType::FpvStrike => "FPV Strike Drone",
+            DroneType::GrenadeDrone => "Grenade Drone",
+            DroneType::MineDrone => "Mine Drone",
         }
     }
 
@@ -242,6 +244,52 @@ impl FpvDroneBundle {
     }
 }
 
+#[derive(Bundle)]
+pub struct GrenadeDroneBundle {
+    pub drone: Drone,
+    pub rigid_body: RigidBody,
+    pub collider: Collider,
+    pub transform: Transform,
+    pub global_transform: GlobalTransform,
+}
+
+impl GrenadeDroneBundle {
+    pub fn new(position: Vec3) -> Self {
+        let mut drone = Drone::new(DroneType::GrenadeDrone);
+        drone.deployed = true;
+        Self {
+            drone,
+            rigid_body: RigidBody::Kinematic,
+            collider: Collider::sphere(DroneType::GrenadeDrone.collider_radius()),
+            transform: Transform::from_translation(position),
+            global_transform: default(),
+        }
+    }
+}
+
+#[derive(Bundle)]
+pub struct MineDroneBundle {
+    pub drone: Drone,
+    pub rigid_body: RigidBody,
+    pub collider: Collider,
+    pub transform: Transform,
+    pub global_transform: GlobalTransform,
+}
+
+impl MineDroneBundle {
+    pub fn new(position: Vec3) -> Self {
+        let mut drone = Drone::new(DroneType::MineDrone);
+        drone.deployed = true;
+        Self {
+            drone,
+            rigid_body: RigidBody::Kinematic,
+            collider: Collider::sphere(DroneType::MineDrone.collider_radius()),
+            transform: Transform::from_translation(position),
+            global_transform: default(),
+        }
+    }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // SYSTEMS
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -252,7 +300,7 @@ pub fn drone_control_system(
     time: Res<Time>,
     mut drone_state: ResMut<DroneState>,
     mut commands: Commands,
-    mut drone_query: Query<(Entity, &mut Drone, &mut Transform)>,
+    mut drone_query: Query<(Entity, &mut Drone, &mut Transform), (Without<Player>, Without<Camera3d>)>,
     player_query: Query<&Transform, With<Player>>,
     camera_query: Query<&Transform, (With<Camera3d>, Without<Player>)>,
     spatial_query: SpatialQuery,
@@ -314,6 +362,8 @@ pub fn drone_control_system(
             match drone.drone_type {
                 DroneType::Recon => drone_state.recon_active = false,
                 DroneType::FpvStrike => drone_state.fpv_active = false,
+                DroneType::GrenadeDrone => drone_state.grenade_active = false,
+                DroneType::MineDrone => drone_state.mine_active = false,
             }
             commands.entity(entity).despawn();
             continue;
@@ -459,7 +509,7 @@ pub fn grenade_drone_system(
     time: Res<Time>,
     mut drone_state: ResMut<DroneState>,
     mut commands: Commands,
-    mut drone_query: Query<(Entity, &mut Drone, &mut Transform)>,
+    mut drone_query: Query<(Entity, &mut Drone, &mut Transform), (Without<Player>, Without<Camera3d>)>,
     player_query: Query<&Transform, With<Player>>,
     camera_query: Query<&Transform, (With<Camera3d>, Without<Player>)>,
 ) {
@@ -559,8 +609,7 @@ pub fn grenade_drone_system(
         if drone.grenade_hardpoints == 0 || drone.battery_ratio() < 0.15 {
             let to_player = player_pos - transform.translation;
             if to_player.length_squared() > 4.0 {
-                drone.velocity =
-                    to_player.normalize_or_zero() * drone.drone_type.max_speed();
+                drone.velocity = to_player.normalize_or_zero() * drone.drone_type.max_speed();
                 transform.translation += drone.velocity * dt;
             } else {
                 drone.deployed = false;
@@ -581,7 +630,7 @@ pub fn mine_drone_system(
     time: Res<Time>,
     mut drone_state: ResMut<DroneState>,
     mut commands: Commands,
-    mut drone_query: Query<(Entity, &mut Drone, &mut Transform)>,
+    mut drone_query: Query<(Entity, &mut Drone, &mut Transform), (Without<Player>, Without<Camera3d>)>,
     player_query: Query<&Transform, With<Player>>,
     camera_query: Query<&Transform, (With<Camera3d>, Without<Player>)>,
 ) {
@@ -685,8 +734,7 @@ pub fn mine_drone_system(
         if drone.mine_count == 0 || drone.battery_ratio() < 0.15 {
             let to_player = player_pos - transform.translation;
             if to_player.length_squared() > 4.0 {
-                drone.velocity =
-                    to_player.normalize_or_zero() * drone.drone_type.max_speed();
+                drone.velocity = to_player.normalize_or_zero() * drone.drone_type.max_speed();
                 transform.translation += drone.velocity * dt;
             } else {
                 drone.deployed = false;

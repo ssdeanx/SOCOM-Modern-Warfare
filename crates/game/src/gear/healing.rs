@@ -20,7 +20,7 @@ pub fn self_heal_system(
         With<Player>,
     >,
 ) {
-    let Ok((entity, action_state, mut health)) = player_query.get_single_mut() else {
+    let Ok((entity, action_state, mut health)) = player_query.single_mut() else {
         return;
     };
 

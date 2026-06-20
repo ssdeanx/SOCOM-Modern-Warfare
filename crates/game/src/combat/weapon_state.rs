@@ -2,6 +2,8 @@ use bevy::prelude::*;
 
 use socom_core::components::Weapon;
 
+use crate::weapons::CompleteWeapon;
+
 /// Per-entity weapon runtime state: ammo counts, fire cooldown, reload status.
 #[derive(Component, Debug, Clone)]
 pub struct WeaponState {
@@ -25,6 +27,18 @@ impl WeaponState {
         Self {
             magazine: weapon.magazine_size,
             reserve: weapon.reserve_ammo,
+            last_fire_time: -f32::MAX,
+            is_reloading: false,
+            reload_timer: 0.0,
+            slot_index,
+        }
+    }
+
+    /// Initialise from a `CompleteWeapon` with pre-computed attachment stats.
+    pub fn from_complete_weapon(weapon: &CompleteWeapon, slot_index: u8) -> Self {
+        Self {
+            magazine: weapon.final_magazine_size,
+            reserve: weapon.final_reserve_ammo,
             last_fire_time: -f32::MAX,
             is_reloading: false,
             reload_timer: 0.0,

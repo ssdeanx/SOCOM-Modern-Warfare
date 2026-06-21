@@ -24,6 +24,9 @@ mod squad;
 mod stamina;
 mod states;
 mod tactical;
+mod hdri;
+mod texture_assets;
+mod training;
 mod weapon_handling;
 mod weapons;
 
@@ -33,7 +36,7 @@ use bevy::prelude::*;
 use socom_audio::AudioPlugin as SocomAudioPlugin;
 use socom_input::InputPlugin;
 use socom_rendering::camera::CameraPlugin;
-use states::{ingame::InGamePlugin, loading::LoadingPlugin, main_menu::MainMenuPlugin, AppState};
+use states::{ingame::InGamePlugin, loading::LoadingPlugin, main_menu::MainMenuPlugin, AppState, GameMode};
 
 use crate::breathing::BreathingPlugin;
 use crate::combat::RespawnState;
@@ -41,6 +44,8 @@ use crate::drones::DronePlugin;
 use crate::gear::GearPlugin;
 use crate::missions::MissionPlugin;
 use crate::progression::ProgressionPlugin;
+use crate::texture_assets::TextureAssetsPlugin;
+use crate::hdri::HdriPlugin;
 
 fn main() {
     let mut app = App::new();
@@ -103,6 +108,8 @@ fn main() {
         InputPlugin,
         CameraPlugin,
         SocomAudioPlugin,
+        TextureAssetsPlugin,
+        HdriPlugin,
         pause::PausePlugin,
         camera_control::CameraControlPlugin,
         feedback::FeedbackPlugin,
@@ -118,7 +125,6 @@ fn main() {
         (
             save_load::auto_save_system,
             save_load::quick_load_system,
-            settings_applier::apply_settings_system,
             stamina::stamina_system,
             weapon_handling::weapon_handling_system,
             socom_rendering::post_processing::apply_post_processing_system,
@@ -135,6 +141,10 @@ fn main() {
     ));
 
     app.add_plugins((MainMenuPlugin, LoadingPlugin, InGamePlugin));
+
+    // ── Training Game Mode ──
+    app.init_resource::<GameMode>();
+    app.add_plugins(training::TrainingPlugin);
 
     app.run();
 }

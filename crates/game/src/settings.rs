@@ -3,14 +3,30 @@ use bevy::prelude::*;
 
 use socom_core::resources::GameSettings;
 
+use crate::settings_applier;
+
 /// Plugin for loading, saving, and applying game settings.
+///
+/// - Loads settings from disk on startup (or creates defaults)
+/// - Saves to disk whenever settings change
+/// - Applies display, camera, audio, and graphics settings reactively
 pub struct SettingsPlugin;
 
 impl Plugin for SettingsPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(GameSettings::default());
         app.add_systems(Startup, load_settings);
-        app.add_systems(Update, apply_audio_volume);
+        app.add_systems(
+            Update,
+            (
+                apply_audio_volume,
+                settings_applier::apply_display_settings,
+                settings_applier::apply_camera_settings,
+                settings_applier::apply_graphics_settings,
+                save_settings_on_change,
+            )
+                .chain(),
+        );
     }
 }
 
@@ -33,6 +49,14 @@ fn apply_audio_volume(settings: Res<GameSettings>, mut query: Query<&mut Playbac
     for mut playback in query.iter_mut() {
         playback.volume = bevy::audio::Volume::Linear(master);
     }
+}
+
+/// Auto-saves to disk whenever settings have changed.
+fn save_settings_on_change(settings: Res<GameSettings>) {
+    if !settings.is_changed() {
+        return;
+    }
+    let _ = save_to_disk(&*settings);
 }
 
 /// Returns the path to the settings file.

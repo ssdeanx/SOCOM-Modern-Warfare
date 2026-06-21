@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Available calibers in the game, from light pistol to heavy anti-materiel.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Caliber {
     NineMm,
     FortyFiveACP,

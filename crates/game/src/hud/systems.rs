@@ -1,4 +1,5 @@
 use crate::combat::WeaponState;
+use crate::controls::stance::StanceTransition;
 use crate::hud::elements::*;
 use bevy::prelude::*;
 use socom_core::components::{Health, MovementState, Player, WeaponSlot};
@@ -17,21 +18,26 @@ pub fn update_health_bar(
 }
 
 pub fn update_stance_text(
-    player_query: Query<&MovementState, With<Player>>,
+    player_query: Query<(&MovementState, &StanceTransition), With<Player>>,
     mut text_query: Query<&mut Text, With<StanceText>>,
 ) {
-    let Ok(stance) = player_query.single() else {
+    let Ok((stance, transition)) = player_query.single() else {
         return;
     };
-    let label = match stance {
-        MovementState::Standing => "STANDING",
-        MovementState::Sprinting => "SPRINTING",
-        MovementState::Crouching => "CROUCHING",
-        MovementState::Prone => "PRONE",
-        MovementState::InCover => "IN COVER",
+    let label = if transition.transitioning {
+        format!("{:?} → {:?}", stance, transition.target_stance)
+    } else {
+        let name = match stance {
+            MovementState::Standing => "STANDING",
+            MovementState::Sprinting => "SPRINTING",
+            MovementState::Crouching => "CROUCHING",
+            MovementState::Prone => "PRONE",
+            MovementState::InCover => "IN COVER",
+        };
+        name.to_string()
     };
     for mut text in text_query.iter_mut() {
-        text.0 = label.into();
+        text.0 = label.clone();
     }
 }
 

@@ -1,5 +1,6 @@
 pub mod enemy_movement;
 pub mod layers;
+pub mod movement_modifiers;
 pub mod player_movement;
 pub mod stance;
 
@@ -13,6 +14,7 @@ pub struct PhysicsPlugin;
 
 impl Plugin for PhysicsPlugin {
     fn build(&self, app: &mut App) {
+        app.add_plugins(movement_modifiers::MovementModifiersPlugin);
         app.add_systems(
             Update,
             player_movement::player_movement_system

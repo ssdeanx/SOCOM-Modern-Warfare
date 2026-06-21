@@ -5,6 +5,9 @@ use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
 
 use crate::states::AppState;
+use crate::states::GameMode;
+
+use self::settings::{SettingsContent, SettingsTab, TabButton, SettingActionId};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum MenuPage {
@@ -18,14 +21,14 @@ pub enum MenuPage {
 #[derive(Resource)]
 pub struct MenuState {
     pub page: MenuPage,
-    pub settings_subpage: settings::SettingsTab,
+    pub settings_tab: settings::SettingsTab,
 }
 
 impl Default for MenuState {
     fn default() -> Self {
         Self {
             page: MenuPage::Main,
-            settings_subpage: settings::SettingsTab::Display,
+            settings_tab: settings::SettingsTab::Display,
         }
     }
 }
@@ -42,7 +45,13 @@ impl Plugin for MenuPlugin {
         app.add_systems(OnExit(AppState::MainMenu), cleanup_menu);
         app.add_systems(
             Update,
-            (menu_navigation_system, main_menu_ui_system).run_if(in_state(AppState::MainMenu)),
+            (
+                menu_navigation_system,
+                main_menu_ui_system,
+                settings::settings_interaction_system,
+                settings::update_settings_ui_system,
+            )
+                .run_if(in_state(AppState::MainMenu)),
         );
     }
 }
@@ -53,9 +62,11 @@ struct MenuUI;
 #[derive(Component)]
 enum MenuButton {
     NewGame,
+    Training,
     Settings,
     Controls,
     Quit,
+    BackToMain,
 }
 
 fn setup_main_menu(mut state: ResMut<MenuState>) {
@@ -79,9 +90,11 @@ fn menu_navigation_system(
     mut menu_state: ResMut<MenuState>,
     mut next_state: ResMut<NextState<AppState>>,
     mut commands: Commands,
+    mut game_mode: ResMut<GameMode>,
     menu_ui_query: Query<Entity, With<MenuUI>>,
     interaction_query: Query<(&Interaction, &MenuButton), Changed<Interaction>>,
 ) {
+    // ── Handle page navigation buttons ──
     for (interaction, button) in &interaction_query {
         if *interaction != Interaction::Pressed {
             continue;
@@ -91,6 +104,11 @@ fn menu_navigation_system(
         }
         match button {
             MenuButton::NewGame => {
+                *game_mode = GameMode::Campaign;
+                next_state.set(AppState::Loading);
+            }
+            MenuButton::Training => {
+                *game_mode = GameMode::Training;
                 next_state.set(AppState::Loading);
             }
             MenuButton::Settings => {
@@ -102,6 +120,9 @@ fn menu_navigation_system(
             MenuButton::Quit => {
                 std::process::exit(0);
             }
+            MenuButton::BackToMain => {
+                menu_state.page = MenuPage::Main;
+            }
         }
     }
 }
@@ -109,21 +130,24 @@ fn menu_navigation_system(
 fn main_menu_ui_system(
     mut commands: Commands,
     menu_state: Res<MenuState>,
-    menu_ui_query: Query<Entity, With<MenuUI>>,
-    asset_server: Res<AssetServer>,
 ) {
-    if !menu_ui_query.is_empty() {
-        return;
-    }
     match menu_state.page {
-        MenuPage::Main => spawn_main_page(&mut commands),
-        MenuPage::Settings => settings::spawn_settings_page(&mut commands),
-        MenuPage::Keybinds => keybinds::spawn_keybinds_page(&mut commands, &asset_server),
+        MenuPage::Main => {
+            spawn_main_page(&mut commands);
+        }
+        MenuPage::Settings => {
+            spawn_settings_page(&mut commands);
+        }
+        MenuPage::Keybinds => {
+            spawn_keybinds_page(&mut commands);
+        }
         MenuPage::QuitConfirm => std::process::exit(0),
     }
 }
 
 fn spawn_main_page(commands: &mut Commands) {
+    // Spawn camera so the menu UI is visible
+    commands.spawn((Camera2d, MenuUI));
     commands
         .spawn((
             Node {
@@ -150,7 +174,6 @@ fn spawn_main_page(commands: &mut Commands) {
                     ..default()
                 },
                 TextColor(Color::srgb(0.9, 0.7, 0.1)),
-                MenuUI,
             ));
             p.spawn((
                 Text::new("Tactical Shooter"),
@@ -159,18 +182,15 @@ fn spawn_main_page(commands: &mut Commands) {
                     ..default()
                 },
                 TextColor(Color::srgb(0.6, 0.6, 0.6)),
-                MenuUI,
             ));
-            p.spawn((
-                Node {
-                    height: Val::Px(40.0),
-                    ..default()
-                },
-                MenuUI,
-            ));
+            p.spawn((Node {
+                height: Val::Px(40.0),
+                ..default()
+            },));
             // Buttons inlined
             for (label, btn) in [
                 ("NEW GAME", MenuButton::NewGame),
+                ("TRAINING", MenuButton::Training),
                 ("SETTINGS", MenuButton::Settings),
                 ("CONTROLS", MenuButton::Controls),
                 ("QUIT", MenuButton::Quit),
@@ -188,7 +208,6 @@ fn spawn_main_page(commands: &mut Commands) {
                     BackgroundColor(Color::srgba(0.15, 0.15, 0.18, 0.9)),
                     Button,
                     btn,
-                    MenuUI,
                 ))
                 .with_child((
                     Text::new(label),
@@ -197,7 +216,6 @@ fn spawn_main_page(commands: &mut Commands) {
                         ..default()
                     },
                     TextColor(Color::srgb(0.8, 0.8, 0.8)),
-                    MenuUI,
                 ));
             }
             p.spawn((
@@ -212,7 +230,15 @@ fn spawn_main_page(commands: &mut Commands) {
                     bottom: Val::Px(20.0),
                     ..default()
                 },
-                MenuUI,
             ));
         });
+}
+
+fn spawn_settings_page(commands: &mut Commands) {
+    // Use the new interactive settings page
+    settings::spawn_settings_page(commands);
+}
+
+fn spawn_keybinds_page(commands: &mut Commands) {
+    keybinds::spawn_keybinds_page(commands);
 }

@@ -6,6 +6,7 @@ use leafwing_input_manager::prelude::*;
 use socom_core::components::{Health, Player};
 use socom_input::actions::PlayerAction;
 
+use crate::combat::damage::Downed;
 use crate::gear::equipment_inventory::EquipmentInventory;
 use crate::gear::equipment_types::{EquipmentItem, EquipmentType};
 use crate::messages::EquipmentUsedMessage;
@@ -83,6 +84,7 @@ pub fn bleed_out_system(
 
 /// Revive a downed teammate when interacting (E) with a MedicalKit/FieldBandage selected.
 pub fn revive_system(
+    mut commands: Commands,
     mut inventory: ResMut<EquipmentInventory>,
     mut equip_writer: MessageWriter<EquipmentUsedMessage>,
     keyboard: Res<ButtonInput<KeyCode>>,
@@ -123,6 +125,7 @@ pub fn revive_system(
         health.current = revive_amount;
         health.bleed_out_remaining = 30.0;
         inventory.consume_selected();
+        commands.entity(_entity).remove::<Downed>();
 
         equip_writer.write(EquipmentUsedMessage {
             entity: player_entity,

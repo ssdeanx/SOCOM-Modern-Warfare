@@ -1,6 +1,7 @@
 // REALISTIC WEAPON HANDLING
 // Weapon weight affects movement speed, deploy time, and sway.
 // Heavier weapons = slower ADS, more sway when moving, slower movement.
+// More aggressive weight curves for SOCOM/SQUAD feel.
 
 use bevy::prelude::*;
 
@@ -35,26 +36,28 @@ impl Default for WeaponHandling {
     }
 }
 
-/// Maps weapon weight (kg) to a movement speed multiplier (0.3–1.0).
-/// Heavier weapons slow the player more.
+/// Maps weapon weight (kg) to a movement speed multiplier (0.25–1.0).
+/// More aggressive: 0.5kg → 1.0, 8.0kg → 0.25 (was 0.35).
 fn weight_to_speed_mult(weight_kg: f32) -> f32 {
     let weight = weight_kg.clamp(0.5, 8.0);
-    // Linear map: 0.5kg → 1.0, 8.0kg → 0.35
-    1.0 - (weight - 0.5) / 7.5 * 0.65
+    // Linear map: 0.5kg → 1.0, 8.0kg → 0.25
+    1.0 - (weight - 0.5) / 7.5 * 0.75
 }
 
-/// Maps weapon weight (kg) to ADS time in seconds (0.1–0.6).
+/// Maps weapon weight (kg) to ADS time in seconds (0.12–0.6).
+/// Heavier weapons take longer to ADS: 0.5kg → 0.12s, 8.0kg → 0.6s (was 0.55).
 fn weight_to_ads_time(weight_kg: f32) -> f32 {
     let weight = weight_kg.clamp(0.5, 8.0);
-    // Linear map: 0.5kg → 0.1s, 8.0kg → 0.55s
-    0.1 + (weight - 0.5) / 7.5 * 0.45
+    // Linear map: 0.5kg → 0.12s, 8.0kg → 0.6s
+    0.12 + (weight - 0.5) / 7.5 * 0.48
 }
 
-/// Maps weapon weight (kg) to sway amplitude (0.001–0.015).
+/// Maps weapon weight (kg) to sway amplitude (0.001–0.018).
+/// Heavier weapons sway more aggressively.
 fn weight_to_sway(weight_kg: f32) -> f32 {
     let weight = weight_kg.clamp(0.5, 8.0);
-    // Heavier weapons sway more
-    0.001 + (weight - 0.5) / 7.5 * 0.014
+    // Heavier weapons sway more: 0.5kg → 0.001, 8.0kg → 0.018 (was 0.015)
+    0.001 + (weight - 0.5) / 7.5 * 0.017
 }
 
 /// Updates weapon handling stats based on the equipped weapon's complete stats.

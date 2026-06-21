@@ -9,8 +9,17 @@ pub mod main_menu;
 pub enum AppState {
     #[default]
     MainMenu,
-    /// Asset loading screen
+    /// Asset loading / splash screen
     Loading,
-    /// Active gameplay
+    /// Active gameplay (both campaign and training)
     InGame,
+}
+
+/// Which game mode is active — Campaign (the main story) or Training.
+/// Set before transitioning to `InGame`.
+#[derive(Resource, Default, Clone, Copy, PartialEq, Eq, Debug)]
+pub enum GameMode {
+    #[default]
+    Campaign,
+    Training,
 }

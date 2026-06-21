@@ -5,6 +5,7 @@ use socom_core::components::{Health, Player, Weapon, WeaponSlot};
 
 use crate::combat::weapon_state::{OffhandWeaponState, WeaponState};
 use crate::level::{spawn_test_level, LevelEntity};
+use crate::texture_assets::TexturedMaterials;
 
 /// Fired when an entity's health reaches zero.
 #[derive(Message, Debug, Clone)]
@@ -85,7 +86,7 @@ pub fn respawn_system(
     death_ui_query: Query<Entity, With<DeathScreenUI>>,
     level_entity_query: Query<Entity, With<LevelEntity>>,
     meshes: ResMut<Assets<Mesh>>,
-    materials: ResMut<Assets<StandardMaterial>>,
+    materials_res: Res<TexturedMaterials>,
 ) {
     if !respawn.is_dead {
         return;
@@ -101,7 +102,7 @@ pub fn respawn_system(
     }
 
     // Re-spawn the level.
-    spawn_test_level(commands.reborrow(), meshes, materials);
+    spawn_test_level(commands.reborrow(), meshes, materials_res);
 
     // Reset player.
     if let Ok((mut transform, mut health, mut weapon_slot, weapon_state_opt, offhand_opt)) =

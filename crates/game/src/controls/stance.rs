@@ -1,14 +1,16 @@
 // REALISTIC STANCE TRANSITIONS
 // Transitions between stances take realistic time:
 //   Standing <-> Crouching: 0.3s
-//   Standing <-> Prone: 0.8s
-//   Crouching <-> Prone: 0.5s
+//   Standing <-> Prone: 1.0s (was 0.8s — ARMA-like)
+//   Crouching <-> Prone: 0.6s (was 0.5s)
 // Sprint cancels into any stance instantly (emergency drop).
+// Supports hold-to-sprint and hold-to-crouch via GameSettings.
 
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::*;
 
 use socom_core::components::{MovementState, Player};
+use socom_core::resources::GameSettings;
 use socom_input::actions::PlayerAction;
 
 /// Tracks stance transition state.
@@ -34,18 +36,20 @@ fn transition_time(from: &MovementState, to: &MovementState) -> f32 {
     use MovementState::*;
     match (from, to) {
         (Standing, Crouching) | (Crouching, Standing) => 0.3,
-        (Standing, Prone) | (Prone, Standing) => 0.8,
-        (Crouching, Prone) | (Prone, Crouching) => 0.5,
-        (Sprinting, _) => 0.0, // Emergency drop
-        (_, Sprinting) => 0.4,
+        (Standing, Prone) | (Prone, Standing) => 1.0,   // Slower prone transition
+        (Crouching, Prone) | (Prone, Crouching) => 0.6,
+        (Sprinting, _) => 0.0, // Emergency drop — instant
+        (_, Sprinting) => 0.3,
         (_, InCover) => 0.2,
         _ => 0.3,
     }
 }
 
-/// Handles stance input with realistic transition timers.
+/// Handles stance input with realistic transition timers, support for
+/// hold-to-sprint and hold-to-crouch modes.
 pub fn stance_transition_system(
     time: Res<Time>,
+    settings: Res<GameSettings>,
     mut player_query: Query<
         (
             &ActionState<PlayerAction>,
@@ -63,36 +67,80 @@ pub fn stance_transition_system(
         return;
     };
 
-    // Determine requested stance from input
-    let requested = if action_state.just_pressed(&PlayerAction::Sprint) {
-        if *current_stance == MovementState::Sprinting {
-            Some(MovementState::Standing)
-        } else {
-            Some(MovementState::Sprinting)
-        }
-    } else if action_state.just_pressed(&PlayerAction::Crouch) {
-        if *current_stance == MovementState::Crouching {
-            Some(MovementState::Standing)
-        } else {
-            Some(MovementState::Crouching)
-        }
-    } else if action_state.just_pressed(&PlayerAction::Prone) {
-        if *current_stance == MovementState::Prone {
-            Some(MovementState::Standing)
-        } else {
-            Some(MovementState::Prone)
+    let mut requested: Option<MovementState> = None;
+
+    // ── Sprint (hold-to-sprint or toggle) ──────────────────────────────
+    if settings.hold_to_sprint {
+        let shift_held = action_state.pressed(&PlayerAction::Sprint);
+        let can_enter_sprint = *current_stance == MovementState::Standing
+            || *current_stance == MovementState::Sprinting;
+        let wants_to_stay_sprint = *current_stance == MovementState::Sprinting;
+
+        if shift_held && can_enter_sprint && *current_stance != MovementState::Sprinting {
+            // Shift held while standing → sprint
+            requested = Some(MovementState::Sprinting);
+        } else if !shift_held && wants_to_stay_sprint {
+            // Shift released while sprinting → walk
+            requested = Some(MovementState::Standing);
         }
     } else {
-        None
-    };
+        // Toggle mode
+        if action_state.just_pressed(&PlayerAction::Sprint) {
+            if *current_stance == MovementState::Sprinting {
+                requested = Some(MovementState::Standing);
+            } else if *current_stance == MovementState::Standing {
+                requested = Some(MovementState::Sprinting);
+            }
+        }
+    }
 
+    // ── Crouch (hold-to-crouch or toggle) ──────────────────────────────
+    if settings.hold_to_crouch {
+        let ctrl_held = action_state.pressed(&PlayerAction::Crouch);
+        let wants_to_stay_crouch = *current_stance == MovementState::Crouching;
+
+        if ctrl_held && *current_stance != MovementState::Crouching {
+            // Crouch key held while not crouching → crouch
+            // But only from Standing or Sprinting
+            if *current_stance == MovementState::Standing
+                || *current_stance == MovementState::Sprinting
+            {
+                requested = Some(MovementState::Crouching);
+            }
+        } else if !ctrl_held && wants_to_stay_crouch {
+            // Crouch key released → stand up
+            requested = Some(MovementState::Standing);
+        }
+    } else {
+        // Toggle mode
+        if action_state.just_pressed(&PlayerAction::Crouch) {
+            if *current_stance == MovementState::Crouching {
+                requested = Some(MovementState::Standing);
+            } else if *current_stance == MovementState::Standing
+                || *current_stance == MovementState::Sprinting
+            {
+                requested = Some(MovementState::Crouching);
+            }
+        }
+    }
+
+    // ── Prone (always toggle, can drop from any stance) ────────────────
+    if action_state.just_pressed(&PlayerAction::Prone) {
+        if *current_stance == MovementState::Prone {
+            requested = Some(MovementState::Standing);
+        } else {
+            requested = Some(MovementState::Prone);
+        }
+    }
+
+    // ── Process requested stance transition ────────────────────────────
     if let Some(target) = requested {
-        if target == *current_stance {
+        if target == *current_stance || transition.transitioning {
             return;
         }
         let trans_time = transition_time(&current_stance, &target);
         if trans_time <= 0.0 {
-            // Instant transition (sprint cancel)
+            // Instant transition (sprint emergency drop)
             *current_stance = target;
             transition.transitioning = false;
         } else {
@@ -102,7 +150,7 @@ pub fn stance_transition_system(
         }
     }
 
-    // Tick transition timer
+    // ── Tick transition timer ──────────────────────────────────────────
     if transition.transitioning {
         transition.current_timer.tick(time.delta());
         if transition.current_timer.just_finished() {

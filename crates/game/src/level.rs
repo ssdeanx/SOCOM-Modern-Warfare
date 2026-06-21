@@ -5,6 +5,8 @@ use crate::ai::enemy::EnemyBundle;
 use crate::ai::teammate::TeammateBundle;
 use crate::states::ingame::IngameEntity;
 use crate::states::AppState;
+use crate::states::GameMode;
+use crate::texture_assets::TexturedMaterials;
 
 /// Marker for entities that are part of the level (despawned on respawn).
 #[derive(Component)]
@@ -23,9 +25,13 @@ impl Plugin for LevelPlugin {
 fn spawn_test_level_system(
     commands: Commands,
     meshes: ResMut<Assets<Mesh>>,
-    materials: ResMut<Assets<StandardMaterial>>,
+    materials_res: Res<TexturedMaterials>,
+    game_mode: Res<GameMode>,
 ) {
-    spawn_test_level(commands, meshes, materials);
+    if *game_mode != GameMode::Campaign {
+        return;
+    }
+    spawn_test_level(commands, meshes, materials_res);
 }
 
 /// Spawns the greybox test level: geometry, enemies, and teammate.
@@ -33,13 +39,8 @@ fn spawn_test_level_system(
 pub fn spawn_test_level(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    materials_res: Res<TexturedMaterials>,
 ) {
-    let ground_mat = materials.add(StandardMaterial::from(Color::srgb(0.3, 0.3, 0.3)));
-    let wall_mat = materials.add(StandardMaterial::from(Color::srgb(0.5, 0.4, 0.3)));
-    let pillar_mat = materials.add(StandardMaterial::from(Color::srgb(0.4, 0.4, 0.5)));
-    let ramp_mat = materials.add(StandardMaterial::from(Color::srgb(0.4, 0.5, 0.3)));
-    let stair_mat = materials.add(StandardMaterial::from(Color::srgb(0.5, 0.3, 0.3)));
 
     let half_size = 10.0;
     let wall_height = 3.0;
@@ -48,7 +49,7 @@ pub fn spawn_test_level(
     // Ground plane
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(40.0, 40.0))),
-        MeshMaterial3d(ground_mat.clone()),
+        MeshMaterial3d(materials_res.concrete_floor.clone()),
         Transform::from_xyz(0.0, -0.01, 0.0),
         RigidBody::Static,
         Collider::half_space(Vec3::Y),
@@ -58,7 +59,7 @@ pub fn spawn_test_level(
     // North wall
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::new(half_size * 2.0, wall_height, wall_thick))),
-        MeshMaterial3d(wall_mat.clone()),
+        MeshMaterial3d(materials_res.concrete_wall.clone()),
         Transform::from_xyz(0.0, wall_height / 2.0, -half_size),
         RigidBody::Static,
         Collider::cuboid(half_size, wall_height / 2.0, wall_thick / 2.0),
@@ -68,7 +69,7 @@ pub fn spawn_test_level(
     // South wall
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::new(half_size * 2.0, wall_height, wall_thick))),
-        MeshMaterial3d(wall_mat.clone()),
+        MeshMaterial3d(materials_res.concrete_wall.clone()),
         Transform::from_xyz(0.0, wall_height / 2.0, half_size),
         RigidBody::Static,
         Collider::cuboid(half_size, wall_height / 2.0, wall_thick / 2.0),
@@ -78,7 +79,7 @@ pub fn spawn_test_level(
     // West wall
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::new(wall_thick, wall_height, half_size * 2.0))),
-        MeshMaterial3d(wall_mat.clone()),
+        MeshMaterial3d(materials_res.concrete_wall.clone()),
         Transform::from_xyz(-half_size, wall_height / 2.0, 0.0),
         RigidBody::Static,
         Collider::cuboid(wall_thick / 2.0, wall_height / 2.0, half_size),
@@ -88,7 +89,7 @@ pub fn spawn_test_level(
     // East wall
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::new(wall_thick, wall_height, half_size * 2.0))),
-        MeshMaterial3d(wall_mat.clone()),
+        MeshMaterial3d(materials_res.concrete_wall.clone()),
         Transform::from_xyz(half_size, wall_height / 2.0, 0.0),
         RigidBody::Static,
         Collider::cuboid(wall_thick / 2.0, wall_height / 2.0, half_size),
@@ -105,7 +106,7 @@ pub fn spawn_test_level(
     ] {
         commands.spawn((
             Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
-            MeshMaterial3d(pillar_mat.clone()),
+            MeshMaterial3d(materials_res.metal_pillar.clone()),
             Transform::from_translation(pos),
             RigidBody::Static,
             Collider::cuboid(0.5, 0.5, 0.5),
@@ -118,7 +119,7 @@ pub fn spawn_test_level(
     let ramp_angle = -0.52_f32;
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::new(2.0, 0.2, 4.0))),
-        MeshMaterial3d(ramp_mat.clone()),
+        MeshMaterial3d(materials_res.metal_ramp.clone()),
         Transform::from_xyz(-5.0, 1.0, 3.0).with_rotation(Quat::from_euler(
             EulerRot::XYZ,
             ramp_angle,
@@ -137,7 +138,7 @@ pub fn spawn_test_level(
         let z = 2.0 + step as f32 * 0.5;
         commands.spawn((
             Mesh3d(meshes.add(Cuboid::new(2.0, 0.5, 0.5))),
-            MeshMaterial3d(stair_mat.clone()),
+            MeshMaterial3d(materials_res.brick_stairs.clone()),
             Transform::from_xyz(5.0, y, z),
             RigidBody::Static,
             Collider::cuboid(1.0, 0.25, 0.25),

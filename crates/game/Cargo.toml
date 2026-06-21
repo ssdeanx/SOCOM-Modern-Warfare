@@ -7,7 +7,7 @@ edition = "2021"
 # ═══════════════════════════════════════════
 # ENGINE
 # ═══════════════════════════════════════════
-bevy = { version = "0.18.1", features = ["3d", "audio", "bevy_dev_tools"] }
+bevy = { version = "0.18.1", features = ["3d", "audio", "bevy_dev_tools", "jpeg", "hdr"] }
 
 # ═══════════════════════════════════════════
 # INTERNAL CRATES

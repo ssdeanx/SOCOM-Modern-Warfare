@@ -115,6 +115,9 @@ pub struct Weapon {
     pub spread_degrees: f32,
     /// Maximum effective range in metres.
     pub max_range: f32,
+    /// Per-weapon ADS FOV target in degrees (e.g. 55.0 for a red dot, 40.0 for a 4x scope).
+    /// Used by the camera system to zoom in when aiming down sights.
+    pub ads_fov_target: f32,
 }
 
 impl Weapon {
@@ -130,6 +133,7 @@ impl Weapon {
             is_automatic: true,
             spread_degrees: 0.5,
             max_range: 300.0,
+            ads_fov_target: 55.0,
         }
     }
 
@@ -145,6 +149,7 @@ impl Weapon {
             is_automatic: true,
             spread_degrees: 1.0,
             max_range: 150.0,
+            ads_fov_target: 55.0,
         }
     }
 
@@ -160,6 +165,7 @@ impl Weapon {
             is_automatic: false,
             spread_degrees: 0.8,
             max_range: 50.0,
+            ads_fov_target: 50.0,
         }
     }
 
@@ -175,6 +181,7 @@ impl Weapon {
             is_automatic: true,
             spread_degrees: 1.5,
             max_range: 350.0,
+            ads_fov_target: 55.0,
         }
     }
 }

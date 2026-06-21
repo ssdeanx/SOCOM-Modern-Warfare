@@ -3,6 +3,8 @@ pub mod death;
 pub mod destruction;
 pub mod impacts;
 pub mod reload;
+pub mod ballistics;
+// shooting is deprecated — bullet spawn logic moved to ballistics/spawn.rs
 pub mod shooting;
 pub mod vfx;
 pub mod weapon_bob;
@@ -28,6 +30,7 @@ use bevy::prelude::*;
 
 use socom_core::resources::is_not_paused;
 
+use crate::combat::ballistics::BallisticsPlugin;
 use crate::combat::destruction::DestructionPlugin;
 use crate::combat::weapon_bob::AdsState;
 
@@ -43,6 +46,7 @@ impl Plugin for CombatPlugin {
         app.add_message::<DeathMessage>();
 
         app.add_plugins(DestructionPlugin);
+        app.add_plugins(BallisticsPlugin);
 
         app.add_systems(OnEnter(AppState::InGame), spawn_weapon_model);
 
@@ -53,7 +57,6 @@ impl Plugin for CombatPlugin {
                 weapon_model_swap_system,
                 reload::reload_input_system,
                 reload::reload_tick_system,
-                shooting::shooting_system,
                 damage::apply_damage_system,
                 damage::death_check_system,
                 death::handle_player_death,
@@ -61,7 +64,6 @@ impl Plugin for CombatPlugin {
                 weapon_model_flash_system,
                 weapon_model::weapon_shoulder_mirror_system,
                 weapon_bob::weapon_bob_system,
-                weapon_bob::ads_fov_system,
                 impacts::impact_lifetime_system,
             )
                 .chain()

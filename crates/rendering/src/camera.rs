@@ -21,25 +21,42 @@ const SHOULDER_OFFSET: f32 = 0.7;
 /// Camera collision minimum margin from obstruction.
 const CAMERA_COLLISION_MARGIN: f32 = 0.5;
 
+/// ADS camera distance — pulls camera to ~1.2m when fully aimed.
+const ADS_DISTANCE: f32 = 1.2;
+
+// ── Camera shake constants ─────────────────────────────────────────────────────
+
+/// How fast shake trauma decays per second (higher = faster recovery).
+const SHAKE_DECAY_RATE: f32 = 6.0;
+
+/// Strength multiplier for positional shake (translation offset in metres per unit trauma).
+const SHAKE_TRANSLATION_STRENGTH: f32 = 0.08;
+
+/// Strength multiplier for rotational shake (radians per unit trauma).
+const SHAKE_ROTATION_STRENGTH: f32 = 0.025;
+
+/// Frequency of the noise driving the camera shake (Hz).
+const SHAKE_NOISE_FREQ: f32 = 25.0;
+
 /// Eye heights per stance (metres above ground).
 const EYE_HEIGHT_STANDING: f32 = 1.65; // True eye level
 const EYE_HEIGHT_SPRINTING: f32 = 1.65;
 const EYE_HEIGHT_CROUCHING: f32 = 1.0;
 const EYE_HEIGHT_PRONE: f32 = 0.35;
 
-/// Eye-height interpolation speed per frame.
-const EYE_HEIGHT_LERP_FACTOR: f32 = 0.08;
+/// Eye-height interpolation speed (rate-per-second, frame-rate independent).
+const EYE_HEIGHT_LERP_FACTOR: f32 = 0.25;
 
 /// Base mouse sensitivity fallback.
 const DEFAULT_SENSITIVITY: f32 = 0.005;
 
-/// FOV values in degrees.
-const DEFAULT_FOV_3RD: f32 = 70.0; // 3rd-person base
-const DEFAULT_FOV_1ST: f32 = 80.0; // 1st-person wider for immersion
-const ADS_FOV_OFFSET: f32 = -15.0; // FOV reduction when aiming down sights
+/// Default FOV values (can be overridden by settings).
+const DEFAULT_FOV_3RD: f32 = 70.0;
+const DEFAULT_FOV_1ST: f32 = 80.0;
+const ADS_FOV_OFFSET: f32 = -15.0;
 
-/// Perspective transition speed (0..1 per frame).
-const PERSPECTIVE_LERP_SPEED: f32 = 0.12;
+/// Perspective transition speed (rate-per-second, frame-rate independent).
+const PERSPECTIVE_LERP_SPEED: f32 = 8.0;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PERSPECTIVE ENUM
@@ -99,7 +116,13 @@ pub struct ThirdPersonCamera {
     pub collision: bool,
 
     // ── FOV ──
-    pub fov: f32,
+    /// 3rd-person base FOV in degrees (adjusted in settings).
+    pub fov_third_person: f32,
+    /// 1st-person base FOV in degrees (adjusted in settings).
+    pub fov_first_person: f32,
+    /// Target FOV used for per-perspective blending.
+    pub target_fov: f32,
+    /// Aim-down-sights factor (0.0 = hip, 1.0 = fully ADS).
     pub ads_factor: f32,
 
     // ── Smoothing ──
@@ -109,6 +132,12 @@ pub struct ThirdPersonCamera {
     // ── Interpolated state ──
     pub current_eye_height: f32,
     pub desired_position: Vec3,
+
+    // ── Camera shake ──
+    /// Current shake trauma (0.0 = none, 1.0 = max). Decays over time.
+    pub shake_trauma: f32,
+    /// Seed for the pseudo-random noise driving the shake.
+    pub shake_seed: u64,
 }
 
 impl ThirdPersonCamera {
@@ -126,12 +155,16 @@ impl ThirdPersonCamera {
             shoulder: Shoulder::Right,
             shoulder_lerp: 1.0,
             collision: true,
-            fov: DEFAULT_FOV_3RD,
+            fov_third_person: DEFAULT_FOV_3RD,
+            fov_first_person: DEFAULT_FOV_1ST,
+            target_fov: DEFAULT_FOV_3RD,
             ads_factor: 0.0,
             lerp_factor: 0.1,
             freelook: false,
             current_eye_height: EYE_HEIGHT_STANDING,
             desired_position: Vec3::ZERO,
+            shake_trauma: 0.0,
+            shake_seed: 42,
         }
     }
 
@@ -213,10 +246,10 @@ fn target_eye_height(stance: &MovementState) -> f32 {
     }
 }
 
-/// Compute the final camera FOV based on perspective, ADS, and base.
-fn compute_fov(perspective_factor: f32, _base_fov: f32, ads_factor: f32) -> f32 {
+/// Compute the final camera FOV based on perspective, target FOV, and ADS.
+fn compute_fov(fov_third: f32, fov_first: f32, perspective_factor: f32, ads_factor: f32) -> f32 {
     // Blend between 3rd and 1st person base FOV.
-    let blended_base = DEFAULT_FOV_3RD.lerp(DEFAULT_FOV_1ST, perspective_factor);
+    let blended_base = fov_first.lerp(fov_third, 1.0 - perspective_factor);
     // Apply ADS zoom offset.
     (blended_base + ADS_FOV_OFFSET * ads_factor)
         .max(40.0)
@@ -227,17 +260,14 @@ fn compute_fov(perspective_factor: f32, _base_fov: f32, ads_factor: f32) -> f32 
 // PERSPECTIVE TOGGLE SYSTEM
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/// Listens for perspective toggle input (middle-mouse click or V key)
+/// Listens for perspective toggle input (V key only — middle-click is freelook)
 /// and updates the camera's perspective mode.
 fn perspective_toggle_system(
     keys: Res<ButtonInput<KeyCode>>,
-    mouse: Res<ButtonInput<MouseButton>>,
     mut cam_query: Query<&mut ThirdPersonCamera>,
     mut perspective_state: ResMut<PerspectiveState>,
 ) {
-    let toggle = mouse.just_pressed(MouseButton::Middle) || keys.just_pressed(KeyCode::KeyV);
-
-    if toggle {
+    if keys.just_pressed(KeyCode::KeyV) {
         for mut cam in cam_query.iter_mut() {
             cam.toggle_perspective();
             perspective_state.current = cam.perspective;
@@ -253,9 +283,46 @@ fn perspective_toggle_system(
 fn camera_fov_system(mut cam_query: Query<(&ThirdPersonCamera, &mut bevy::camera::Projection)>) {
     for (cam, mut projection) in cam_query.iter_mut() {
         if let bevy::camera::Projection::Perspective(ref mut persp) = &mut *projection {
-            persp.fov = compute_fov(cam.perspective_factor, cam.fov, cam.ads_factor).to_radians();
+            persp.fov = compute_fov(
+                cam.fov_third_person,
+                cam.fov_first_person,
+                cam.perspective_factor,
+                cam.ads_factor,
+            )
+            .to_radians();
         }
     }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CAMERA SHAKE HELPERS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Simple 64-bit hash for use as a noise seed.
+#[inline]
+fn hash_u64(mut x: u64) -> u64 {
+    x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+    x ^= x >> 33;
+    x.wrapping_mul(6364136223846793005)
+}
+
+/// 1D value noise with smoothstep interpolation (Perlin-like).
+/// Returns a value in [-1, 1].
+#[inline]
+fn value_noise_1d(t: f32, seed: u64) -> f32 {
+    let ix = t.floor() as i64;
+    let fx = t - t.floor();
+    // Hermite smoothstep for organic interpolation
+    let sx = fx * fx * (3.0 - 2.0 * fx);
+
+    let h0 = hash_u64(seed.wrapping_add(ix as u64));
+    let h1 = hash_u64(seed.wrapping_add(ix as u64 + 1));
+
+    // Convert to f32 in [-1, 1]
+    let v0 = (h0 as f32 * 2.3283064365386963e-10) * 2.0 - 1.0;
+    let v1 = (h1 as f32 * 2.3283064365386963e-10) * 2.0 - 1.0;
+
+    v0 + (v1 - v0) * sx
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -267,36 +334,44 @@ fn camera_fov_system(mut cam_query: Query<(&ThirdPersonCamera, &mut bevy::camera
 /// - **1st person:** At eye level, no orbit, no shoulder offset
 /// Smoothly interpolated via `perspective_factor`.
 fn camera_follow_system(
+    time: Res<Time>,
     spatial_query: SpatialQuery,
-    mut cam_query: Query<(&mut ThirdPersonCamera, &mut Transform)>,
+    mut cam_query: Query<(Entity, &mut ThirdPersonCamera, &mut Transform)>,
     target_query: Query<&Transform, Without<ThirdPersonCamera>>,
     player_query: Query<&MovementState, With<Player>>,
 ) {
+    let dt = time.delta_secs();
+    let now = time.elapsed_secs();
     let stance = player_query
         .iter()
         .next()
         .map_or(MovementState::Standing, |s| *s);
     let target_height = target_eye_height(&stance);
 
-    for (mut cam, mut transform) in cam_query.iter_mut() {
+    for (entity, mut cam, mut transform) in cam_query.iter_mut() {
         // Copy target entity to avoid borrow conflict with cam mutation below
         let target_entity = cam.target;
         let Ok(target_transform) = target_query.get(target_entity) else {
             continue;
         };
 
-        // ── 1. Update perspective interpolation ─────────────────────
+        // ── 1. Update perspective interpolation (frame-rate independent) ──
+        let persp_lerp = (1.0 - (-PERSPECTIVE_LERP_SPEED * dt).exp()).min(1.0);
         cam.perspective_factor +=
-            (cam.target_perspective_factor - cam.perspective_factor) * PERSPECTIVE_LERP_SPEED;
+            (cam.target_perspective_factor - cam.perspective_factor) * persp_lerp;
 
-        // ── 2. Smoothly interpolate eye height ──────────────────────
-        cam.current_eye_height += (target_height - cam.current_eye_height) * EYE_HEIGHT_LERP_FACTOR;
+        // ── 2. Smoothly interpolate eye height (frame-rate independent) ──
+        let eye_lerp = (1.0 - (-EYE_HEIGHT_LERP_FACTOR * dt).exp()).min(1.0);
+        cam.current_eye_height +=
+            (target_height - cam.current_eye_height) * eye_lerp;
 
         let target_pos = target_transform.translation;
         let eye_pos = target_pos + Vec3::Y * cam.current_eye_height;
 
         // ── 3. Compute 3rd-person desired position ──────────────────
-        let offset = orbit_offset(cam.distance, cam.pitch, cam.yaw);
+        // Use ADS distance: lerp between default and ADS distance based on ads_factor
+        let target_distance = DEFAULT_DISTANCE.lerp(ADS_DISTANCE, cam.ads_factor);
+        let offset = orbit_offset(target_distance, cam.pitch, cam.yaw);
 
         let target_shoulder = match cam.shoulder {
             Shoulder::Right => 1.0,
@@ -326,7 +401,9 @@ fn camera_follow_system(
                 &filter,
             ) {
                 let pushback = hit.distance.max(CAMERA_COLLISION_MARGIN);
-                let collision_pos = eye_pos + direction * pushback + shoulder_offset;
+                // NOTE: shoulder_offset is already baked into desired_3rd,
+                // so we must NOT double-apply it here.
+                let collision_pos = eye_pos + direction * pushback;
                 // Blend collision position with 1st person target
                 final_desired = collision_pos.lerp(desired_1st, pf);
             }
@@ -344,8 +421,44 @@ fn camera_follow_system(
         if pf < 0.5 {
             transform.look_at(eye_pos, Vec3::Y);
         } else {
-            let fwd = *target_transform.forward();
-            transform.look_at(cam_pos + fwd * 100.0, Vec3::Y);
+            let look_dir = Vec3::new(
+                -cam.yaw.cos() * cam.pitch.cos(),
+                cam.pitch.sin(),
+                -cam.yaw.sin() * cam.pitch.cos(),
+            );
+            transform.look_at(cam_pos + look_dir * 100.0, Vec3::Y);
+        }
+
+        // ── 8. Camera shake (organic Perlin-like noise) ─────────────
+        // Decay trauma over time
+        cam.shake_trauma *= (1.0 - SHAKE_DECAY_RATE * dt).max(0.0);
+
+        if cam.shake_trauma > 0.001 {
+            let seed = entity.to_bits().wrapping_add(cam.shake_seed);
+
+            // Positional shake — use different frequency offsets per axis
+            let shake_pos = Vec3::new(
+                value_noise_1d(now * SHAKE_NOISE_FREQ, seed)
+                    * cam.shake_trauma
+                    * SHAKE_TRANSLATION_STRENGTH,
+                value_noise_1d(now * SHAKE_NOISE_FREQ + 100.0, seed.wrapping_add(1))
+                    * cam.shake_trauma
+                    * SHAKE_TRANSLATION_STRENGTH,
+                value_noise_1d(now * SHAKE_NOISE_FREQ + 200.0, seed.wrapping_add(2))
+                    * cam.shake_trauma
+                    * SHAKE_TRANSLATION_STRENGTH,
+            );
+            transform.translation += shake_pos;
+
+            // Rotational shake (pitch and yaw only, no roll)
+            let shake_pitch = value_noise_1d(now * SHAKE_NOISE_FREQ * 1.2 + 300.0, seed.wrapping_add(3))
+                * cam.shake_trauma
+                * SHAKE_ROTATION_STRENGTH;
+            let shake_yaw = value_noise_1d(now * SHAKE_NOISE_FREQ * 1.2 + 400.0, seed.wrapping_add(4))
+                * cam.shake_trauma
+                * SHAKE_ROTATION_STRENGTH;
+            let rot_shake = Quat::from_euler(EulerRot::XYZ, shake_pitch, shake_yaw, 0.0);
+            transform.rotation = rot_shake * transform.rotation;
         }
     }
 }

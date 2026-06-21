@@ -1,8 +1,10 @@
-use crate::menu::MenuUI;
 use bevy::prelude::*;
 use socom_input::actions::PlayerAction;
 
-pub fn spawn_keybinds_page(commands: &mut Commands, _asset_server: &Res<AssetServer>) {
+use crate::menu::{MenuButton, MenuUI};
+
+pub fn spawn_keybinds_page(commands: &mut Commands) {
+    commands.spawn((Camera2d, MenuUI));
     commands
         .spawn((
             Node {
@@ -29,7 +31,6 @@ pub fn spawn_keybinds_page(commands: &mut Commands, _asset_server: &Res<AssetSer
                     ..default()
                 },
                 TextColor(Color::srgb(0.9, 0.7, 0.1)),
-                MenuUI,
             ));
             for (action, key) in binding_display_list() {
                 let label = format!("{:?}: {:?}", action, key);
@@ -40,7 +41,6 @@ pub fn spawn_keybinds_page(commands: &mut Commands, _asset_server: &Res<AssetSer
                         ..default()
                     },
                     TextColor(Color::srgb(0.7, 0.7, 0.7)),
-                    MenuUI,
                 ));
             }
             parent
@@ -56,8 +56,7 @@ pub fn spawn_keybinds_page(commands: &mut Commands, _asset_server: &Res<AssetSer
                     BorderColor::all(Color::srgb(0.4, 0.4, 0.4)),
                     BackgroundColor(Color::srgba(0.15, 0.15, 0.18, 0.9)),
                     Button,
-                    BackToControls,
-                    MenuUI,
+                    MenuButton::BackToMain,
                 ))
                 .with_child((
                     Text::new("BACK"),
@@ -66,13 +65,9 @@ pub fn spawn_keybinds_page(commands: &mut Commands, _asset_server: &Res<AssetSer
                         ..default()
                     },
                     TextColor(Color::srgb(0.8, 0.8, 0.8)),
-                    MenuUI,
                 ));
         });
 }
-
-#[derive(Component)]
-pub struct BackToControls;
 
 fn binding_display_list() -> Vec<(PlayerAction, &'static str)> {
     vec![

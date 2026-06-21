@@ -202,6 +202,7 @@ impl EquippedWeapon {
             is_automatic: self.weapon.final_is_automatic,
             spread_degrees: self.weapon.final_spread_hip,
             max_range: self.weapon.final_max_range,
+            ads_fov_target: 55.0,
         }
     }
 }

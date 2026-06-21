@@ -7,8 +7,10 @@ use socom_core::components::{Health, MovementState, Player, WeaponSlot};
 use socom_rendering::camera::ThirdPersonCamera;
 use socom_rendering::post_processing::PostProcessingProfile;
 
+use crate::combat::ballistics::components::MaterialType;
 use crate::combat::weapon_bob::WeaponBobState;
 use crate::combat::{OffhandWeaponState, WeaponState};
+use crate::physics::movement_modifiers::{LandingSlow, Momentum, SprintBrake};
 use crate::physics::CharacterController;
 use crate::stamina::Stamina;
 use crate::states::ingame::IngameEntity;
@@ -32,6 +34,9 @@ pub struct PlayerBundle {
     pub weapon_bob: WeaponBobState,
     pub stamina: Stamina,
     pub weapon_handling: WeaponHandling,
+    pub momentum: Momentum,
+    pub sprint_brake: SprintBrake,
+    pub landing_slow: LandingSlow,
     pub rigid_body: RigidBody,
     pub collider: Collider,
     pub collision_layers: CollisionLayers,
@@ -43,7 +48,6 @@ pub struct PlayerBundle {
 impl PlayerBundle {
     pub fn new() -> Self {
         let weapon_slot = WeaponSlot::default();
-        // Build CompleteWeapon from the WeaponSlot's defaults
         let equipped = EquippedWeapon::default();
         Self {
             player: Player,
@@ -51,13 +55,15 @@ impl PlayerBundle {
             movement_state: MovementState::Standing,
             weapon_state: WeaponState::from_complete_weapon(&equipped.weapon, 0),
             offhand_state: {
-                // Initialise the offhand slot (sidearm) with full ammo.
                 OffhandWeaponState(WeaponState::from_complete_weapon(&CompleteWeapon::default_m1911(), 1))
             },
             equipped_weapon: equipped,
             weapon_bob: WeaponBobState::default(),
             stamina: Stamina::default(),
             weapon_handling: WeaponHandling::default(),
+            momentum: Momentum::default(),
+            sprint_brake: SprintBrake::default(),
+            landing_slow: LandingSlow::default(),
             weapon_slot,
             rigid_body: RigidBody::Kinematic,
             collider: Collider::capsule(0.3, 0.9),
@@ -87,10 +93,20 @@ impl Plugin for PlayerPlugin {
     }
 }
 
-fn spawn_player(mut commands: Commands) {
-    let player_entity = commands.spawn((PlayerBundle::new(), IngameEntity)).id();
+fn spawn_player(mut commands: Commands, game_mode: Res<crate::states::GameMode>) {
+    let pos = match *game_mode {
+        crate::states::GameMode::Training => Vec3::new(0.0, 1.5, -25.0),
+        crate::states::GameMode::Campaign => Vec3::new(0.0, 1.5, 0.0),
+    };
 
-    // Spawn camera tracking the player with AAA post-processing stack.
+    let player_entity = commands
+        .spawn((PlayerBundle::new(), IngameEntity))
+        .insert((
+            Transform::from_translation(pos),
+            MaterialType::Flesh,
+        ))
+        .id();
+
     commands.spawn((
         Camera3d::default(),
         ThirdPersonCamera::new(player_entity),

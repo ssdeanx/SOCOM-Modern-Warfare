@@ -6,6 +6,7 @@ use socom_input::actions::PlayerAction;
 use socom_rendering::camera::ThirdPersonCamera;
 
 use crate::combat::weapon_model::WeaponModelRoot;
+use crate::physics::movement_modifiers::SprintBrake;
 use crate::stamina::{stamina_sway_mult, Stamina};
 use crate::weapon_handling::WeaponHandling;
 
@@ -17,7 +18,7 @@ pub struct AdsState {
     pub factor: f32,
     /// Spread multiplier (1.0 at hip, 0.5 when aimed).
     pub spread_mult: f32,
-    /// Movement speed multiplier (1.0 at hip, 0.7 when aimed).
+    /// Movement speed multiplier (1.0 at hip, 0.4 when aimed).
     pub speed_mult: f32,
 }
 
@@ -55,9 +56,16 @@ fn bob_params(stance: &MovementState) -> (f32, f32) {
 
 /// Animates weapon bob and updates the shared ADS state resource.
 /// Uses `WeaponHandling` stats for ADS speed and sway amplitude.
+/// Sprint brake blocks ADS factor from increasing.
 pub fn weapon_bob_system(
     time: Res<Time>,
-    player_query: Query<(&ActionState<PlayerAction>, &MovementState, &Stamina, &WeaponHandling), With<Player>>,
+    player_query: Query<(
+        &ActionState<PlayerAction>,
+        &MovementState,
+        &Stamina,
+        &WeaponHandling,
+        Option<&SprintBrake>,
+    ), With<Player>>,
     mut bob_query: Query<(&mut WeaponBobState, &mut Transform), With<WeaponModelRoot>>,
     mut ads_state: ResMut<AdsState>,
 ) {
@@ -65,13 +73,20 @@ pub fn weapon_bob_system(
     if dt <= 0.0 {
         return;
     }
-    let Ok((action_state, stance, stamina, handling)) = player_query.single() else {
+    let Ok((action_state, stance, stamina, handling, sprint_brake)) = player_query.single() else {
         return;
     };
 
     let moving = action_state.axis_pair(&PlayerAction::Move) != Vec2::ZERO;
     let (freq, amp) = bob_params(stance);
-    let aiming = action_state.pressed(&PlayerAction::Aim);
+
+    // Check if sprint brake is active — block ADS during brake
+    let is_braking = sprint_brake
+        .map(|b| b.timer.fraction() < 1.0)
+        .unwrap_or(false);
+
+    // Only read Aim input if not braking
+    let aiming = !is_braking && action_state.pressed(&PlayerAction::Aim);
 
     // Apply stamina sway multiplier
     let sway_mult = stamina_sway_mult(stamina);
@@ -92,7 +107,8 @@ pub fn weapon_bob_system(
     ads_state.factor = new_ads;
     ads_state.spread_mult =
         (1.0 - new_ads * 0.5) * (if stamina.is_exhausted() { 1.5 } else { 1.0 });
-    ads_state.speed_mult = 1.0 - new_ads * 0.3;
+    // More restrictive ADS speed mult: 1.0 at hip, 0.4 at full ADS (was 0.7)
+    ads_state.speed_mult = 1.0 - new_ads * 0.6;
 
     for (mut bob, mut transform) in bob_query.iter_mut() {
         if moving && freq > 0.0 {
@@ -105,17 +121,5 @@ pub fn weapon_bob_system(
         let bob_x = final_amp * 0.5 * (bob.phase * 1.3).cos();
         let base = HIP_POS.lerp(ADS_POS, new_ads);
         transform.translation = base + Vec3::new(bob_x, bob_y, 0.0);
-    }
-}
-
-/// Applies ADS FOV modifier to the camera.
-pub fn ads_fov_system(
-    ads_state: Res<AdsState>,
-    mut cam_query: Query<(&ThirdPersonCamera, &mut bevy::camera::Projection)>,
-) {
-    for (tp_cam, mut projection) in cam_query.iter_mut() {
-        if let bevy::camera::Projection::Perspective(ref mut persp) = projection.as_mut() {
-            persp.fov = (tp_cam.fov - ads_state.factor * 10.0).to_radians();
-        }
     }
 }
